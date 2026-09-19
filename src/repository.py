@@ -210,3 +210,56 @@ def get_price_on_or_before(
         currency=row["currency"],
         source_id=row["source_id"],
     )
+
+def get_latest_financial_on_or_before(
+    connection: sqlite3.Connection,
+    company_id: int,
+    metric: FinancialMetric,
+    as_of_date: date,
+    period_type: PeriodType,
+) -> FinancialRecord | None:
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            statement_type,
+            metric,
+            value,
+            currency,
+            period_start,
+            period_end,
+            period_type,
+            publication_date,
+            source_id
+        FROM financials
+        WHERE company_id = ?
+        AND metric = ?
+        AND period_type = ?
+        AND publication_date IS NOT NULL
+        AND publication_date <= ?
+        ORDER BY publication_date DESC, period_end DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            metric.value,
+            period_type.value,
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return FinancialRecord(
+        company_id=row["company_id"],
+        statement_type=row["statement_type"],
+        metric=row["metric"],
+        value=row["value"],
+        currency=row["currency"],
+        period_start=row["period_start"],
+        period_end=row["period_end"],
+        period_type=row["period_type"],
+        publication_date=row["publication_date"],
+        source_id=row["source_id"],
+    )

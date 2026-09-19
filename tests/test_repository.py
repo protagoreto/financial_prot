@@ -8,6 +8,8 @@ from src.repository import (
     insert_financial_record,
     insert_price_record,
 )
+from src.metrics import FinancialMetric, PeriodType
+from src.repository import get_latest_financial_on_or_before
 
 def create_company(connection) -> int:
     cursor = connection.execute(
@@ -347,3 +349,122 @@ def test_get_price_on_or_before_returns_none_before_history(
         )
 
     assert price is None
+
+def test_financial_is_not_available_before_publication(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type="income_statement",
+                metric="eps",
+                value=2.50,
+                currency="EUR",
+                period_end="2025-12-31",
+                period_type="annual",
+                publication_date="2026-02-26",
+            ),
+        )
+
+        financial = get_latest_financial_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 2, 25),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert financial is None
+
+
+def test_financial_is_available_on_publication_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type="income_statement",
+                metric="eps",
+                value=2.50,
+                currency="EUR",
+                period_end="2025-12-31",
+                period_type="annual",
+                publication_date="2026-02-26",
+            ),
+        )
+
+        financial = get_latest_financial_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 2, 26),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert financial is not None
+    assert financial.value == 2.50
+    assert financial.period_end == date(2025, 12, 31)
+
+
+def test_financial_query_uses_latest_known_publication(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type="income_statement",
+                metric="eps",
+                value=2.00,
+                currency="EUR",
+                period_end="2024-12-31",
+                period_type="annual",
+                publication_date="2025-02-27",
+            ),
+        )
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type="income_statement",
+                metric="eps",
+                value=2.50,
+                currency="EUR",
+                period_end="2025-12-31",
+                period_type="annual",
+                publication_date="2026-02-26",
+            ),
+        )
+
+        financial = get_latest_financial_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 1, 15),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert financial is not None
+    assert financial.value == 2.00
+    assert financial.period_end == date(2024, 12, 31)
