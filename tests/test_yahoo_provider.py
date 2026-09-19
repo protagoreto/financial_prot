@@ -73,3 +73,32 @@ def test_yahoo_rejects_invalid_date_range():
             start_date=date(2026, 9, 19),
             end_date=date(2026, 9, 18),
         )
+
+def test_normalize_prices_skips_missing_close():
+    provider = YahooPriceProvider()
+
+    dataframe = pd.DataFrame(
+        {
+            "Open": [10.0, 11.0],
+            "High": [12.0, 13.0],
+            "Low": [9.0, 10.0],
+            "Close": [11.0, float("nan")],
+            "Adj Close": [11.0, float("nan")],
+            "Volume": [1000, 2000],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-09-17",
+                "2026-09-18",
+            ]
+        ),
+    )
+
+    records = provider.normalize_prices(
+        company_id=1,
+        dataframe=dataframe,
+    )
+
+    assert len(records) == 1
+    assert records[0].price_date == date(2026, 9, 17)
+    assert records[0].close == 11.0

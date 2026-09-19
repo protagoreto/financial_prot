@@ -176,3 +176,110 @@ def test_incremental_ingestion_starts_after_latest_price(
         "2026-09-17",
         "2026-09-18",
     ]
+
+def test_incremental_ingestion_backfills_missing_history(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    provider = DummyPriceProvider()
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection,
+            name="Inditex",
+            ticker="ITX",
+            exchange="BME",
+            currency="EUR",
+        )
+
+        # Simulate an incomplete database whose first
+        # available price is much later than requested.
+        ingest_prices(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol="ITX.MC",
+            currency="EUR",
+            start_date=date(2026, 9, 18),
+            end_date=date(2026, 9, 18),
+        )
+
+        count = ingest_prices_incremental(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol="ITX.MC",
+            currency="EUR",
+            initial_start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 18),
+        )
+
+        dates = [
+            row["price_date"]
+            for row in connection.execute(
+                """
+                SELECT price_date
+                FROM prices
+                ORDER BY price_date
+                """
+            )
+        ]
+
+    assert count == 1
+
+    assert dates == [
+        "2026-09-01",
+        "2026-09-18",
+    ]
+
+
+def test_incremental_ingestion_tolerates_non_trading_start_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    provider = DummyPriceProvider()
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection,
+            name="Inditex",
+            ticker="ITX",
+            exchange="BME",
+            currency="EUR",
+        )
+
+        ingest_prices(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol="ITX.MC",
+            currency="EUR",
+            start_date=date(2020, 1, 2),
+            end_date=date(2020, 1, 2),
+        )
+
+        count = ingest_prices_incremental(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol="ITX.MC",
+            currency="EUR",
+            initial_start_date=date(2020, 1, 1),
+            end_date=date(2020, 1, 2),
+        )
+
+        rows = connection.execute(
+            """
+            SELECT price_date
+            FROM prices
+            ORDER BY price_date
+            """
+        ).fetchall()
+
+    assert count == 0
+    assert len(rows) == 1
+    assert rows[0]["price_date"] == "2020-01-02"

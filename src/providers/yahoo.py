@@ -25,7 +25,6 @@ class YahooPriceProvider(PriceProvider):
                 "start_date cannot be later than end_date"
             )
 
-        # Yahoo/yfinance treats end as exclusive.
         yahoo_end_date = end_date + timedelta(days=1)
 
         dataframe = yf.download(
@@ -52,20 +51,24 @@ class YahooPriceProvider(PriceProvider):
 
         dataframe = dataframe.copy()
 
-        # yfinance can return MultiIndex columns even for one ticker.
         if isinstance(dataframe.columns, pd.MultiIndex):
             dataframe.columns = dataframe.columns.get_level_values(0)
 
         records: list[PriceRecord] = []
 
         for index, row in dataframe.iterrows():
+            close = row.get("Close")
+
+            if close is None or pd.isna(close):
+                continue
+
             record = PriceRecord(
                 company_id=company_id,
                 price_date=index.date(),
                 open=self._optional_float(row.get("Open")),
                 high=self._optional_float(row.get("High")),
                 low=self._optional_float(row.get("Low")),
-                close=float(row["Close"]),
+                close=float(close),
                 adjusted_close=self._optional_float(
                     row.get("Adj Close")
                 ),

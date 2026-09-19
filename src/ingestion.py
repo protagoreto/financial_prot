@@ -126,25 +126,74 @@ def ingest_prices_incremental(
     initial_start_date: date,
     end_date: date,
 ) -> int:
-    latest_price_date = get_latest_price_date(
-        connection,
-        company_id,
+    row = connection.execute(
+        """
+        SELECT
+            MIN(price_date) AS first_price_date,
+            MAX(price_date) AS latest_price_date
+        FROM prices
+        WHERE company_id = ?
+        """,
+        (company_id,),
+    ).fetchone()
+
+    first_price_date = (
+        date.fromisoformat(row["first_price_date"])
+        if row["first_price_date"]
+        else None
     )
 
+    latest_price_date = (
+        date.fromisoformat(row["latest_price_date"])
+        if row["latest_price_date"]
+        else None
+    )
+
+    total_processed = 0
+
+    # Backfill missing historical data.
+    if (
+    	first_price_date is not None
+    	and (first_price_date - initial_start_date).days > 7
+    ):
+        historical_end_date = first_price_date - timedelta(days=1)
+
+        total_processed += ingest_prices(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol=symbol,
+            currency=currency,
+            start_date=initial_start_date,
+            end_date=historical_end_date,
+        )
+
+    # No existing prices: perform the initial load.
     if latest_price_date is None:
-        start_date = initial_start_date
-    else:
-        start_date = latest_price_date + timedelta(days=1)
+        total_processed += ingest_prices(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol=symbol,
+            currency=currency,
+            start_date=initial_start_date,
+            end_date=end_date,
+        )
 
-    if start_date > end_date:
-        return 0
+        return total_processed
 
-    return ingest_prices(
-        connection=connection,
-        provider=provider,
-        company_id=company_id,
-        symbol=symbol,
-        currency=currency,
-        start_date=start_date,
-        end_date=end_date,
-    )
+    # Forward incremental update.
+    forward_start_date = latest_price_date + timedelta(days=1)
+
+    if forward_start_date <= end_date:
+        total_processed += ingest_prices(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol=symbol,
+            currency=currency,
+            start_date=forward_start_date,
+            end_date=end_date,
+        )
+
+    return total_processed
