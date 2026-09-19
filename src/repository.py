@@ -263,3 +263,51 @@ def get_latest_financial_on_or_before(
         publication_date=row["publication_date"],
         source_id=row["source_id"],
     )
+
+def get_latest_estimate_on_or_before(
+    connection: sqlite3.Connection,
+    company_id: int,
+    metric: FinancialMetric,
+    fiscal_period_end: date,
+    as_of_date: date,
+) -> EstimateRecord | None:
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            metric,
+            value,
+            currency,
+            fiscal_period_end,
+            estimate_date,
+            analyst_count,
+            source_id
+        FROM estimates
+        WHERE company_id = ?
+        AND metric = ?
+        AND fiscal_period_end = ?
+        AND estimate_date <= ?
+        ORDER BY estimate_date DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            metric.value,
+            fiscal_period_end.isoformat(),
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return EstimateRecord(
+        company_id=row["company_id"],
+        metric=row["metric"],
+        value=row["value"],
+        currency=row["currency"],
+        fiscal_period_end=row["fiscal_period_end"],
+        estimate_date=row["estimate_date"],
+        analyst_count=row["analyst_count"],
+        source_id=row["source_id"],
+    )

@@ -10,6 +10,8 @@ from src.repository import (
 )
 from src.metrics import FinancialMetric, PeriodType
 from src.repository import get_latest_financial_on_or_before
+from src.models import EstimateRecord
+from src.repository import get_latest_estimate_on_or_before
 
 def create_company(connection) -> int:
     cursor = connection.execute(
@@ -468,3 +470,118 @@ def test_financial_query_uses_latest_known_publication(
     assert financial is not None
     assert financial.value == 2.00
     assert financial.period_end == date(2024, 12, 31)
+
+def test_estimate_is_not_available_before_estimate_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.00,
+                currency="EUR",
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-03-01",
+                analyst_count=10,
+            ),
+        )
+
+        estimate = get_latest_estimate_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            fiscal_period_end=date(2026, 12, 31),
+            as_of_date=date(2026, 2, 28),
+        )
+
+    assert estimate is None
+
+
+def test_estimate_is_available_on_estimate_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.00,
+                currency="EUR",
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-03-01",
+                analyst_count=10,
+            ),
+        )
+
+        estimate = get_latest_estimate_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            fiscal_period_end=date(2026, 12, 31),
+            as_of_date=date(2026, 3, 1),
+        )
+
+    assert estimate is not None
+    assert estimate.value == 3.00
+    assert estimate.analyst_count == 10
+
+
+def test_estimate_query_uses_latest_known_revision(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.00,
+                currency="EUR",
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-03-01",
+                analyst_count=10,
+            ),
+        )
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.40,
+                currency="EUR",
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-06-01",
+                analyst_count=12,
+            ),
+        )
+
+        estimate = get_latest_estimate_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            fiscal_period_end=date(2026, 12, 31),
+            as_of_date=date(2026, 5, 15),
+        )
+
+    assert estimate is not None
+    assert estimate.value == 3.00
+    assert estimate.estimate_date == date(2026, 3, 1)
