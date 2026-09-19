@@ -139,3 +139,26 @@ def insert_price_record(
     connection.commit()
 
     return row["price_id"]
+
+from datetime import date
+
+
+def get_latest_price_date(
+    connection: sqlite3.Connection,
+    company_id: int,
+) -> date | None:
+    row = connection.execute(
+        """
+        SELECT MAX(price_date) AS latest_price_date
+        FROM prices
+        WHERE company_id = ?
+        """,
+        (company_id,),
+    ).fetchone()
+
+    if row is None or row["latest_price_date"] is None:
+        return None
+
+    return date.fromisoformat(
+        row["latest_price_date"]
+    )

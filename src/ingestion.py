@@ -1,9 +1,9 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import sqlite3
 
 from src.models import PriceRecord
 from src.providers.base import PriceProvider
-from src.repository import insert_price_record
+from src.repository import get_latest_price_date, insert_price_record
 
 
 def get_or_create_company(
@@ -116,3 +116,35 @@ def ingest_prices(
         inserted += 1
 
     return inserted
+
+def ingest_prices_incremental(
+    connection: sqlite3.Connection,
+    provider: PriceProvider,
+    company_id: int,
+    symbol: str,
+    currency: str,
+    initial_start_date: date,
+    end_date: date,
+) -> int:
+    latest_price_date = get_latest_price_date(
+        connection,
+        company_id,
+    )
+
+    if latest_price_date is None:
+        start_date = initial_start_date
+    else:
+        start_date = latest_price_date + timedelta(days=1)
+
+    if start_date > end_date:
+        return 0
+
+    return ingest_prices(
+        connection=connection,
+        provider=provider,
+        company_id=company_id,
+        symbol=symbol,
+        currency=currency,
+        start_date=start_date,
+        end_date=end_date,
+    )

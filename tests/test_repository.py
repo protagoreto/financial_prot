@@ -196,3 +196,60 @@ def test_insert_price_record_is_idempotent(tmp_path: Path):
     assert len(rows) == 1
     assert rows[0]["close"] == 51.75
     assert rows[0]["volume"] == 6018000
+
+def test_get_latest_price_date_returns_none_without_prices(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        from src.repository import get_latest_price_date
+
+        latest = get_latest_price_date(
+            connection,
+            company_id,
+        )
+
+    assert latest is None
+
+
+def test_get_latest_price_date_returns_most_recent_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-17",
+                close=50.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        from src.repository import get_latest_price_date
+
+        latest = get_latest_price_date(
+            connection,
+            company_id,
+        )
+
+    assert latest.isoformat() == "2026-09-18"
