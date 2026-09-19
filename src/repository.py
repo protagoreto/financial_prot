@@ -1,6 +1,8 @@
 import sqlite3
 
+
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
+
 
 def insert_financial_record(
     connection: sqlite3.Connection,
@@ -161,4 +163,50 @@ def get_latest_price_date(
 
     return date.fromisoformat(
         row["latest_price_date"]
+    )
+
+def get_price_on_or_before(
+    connection: sqlite3.Connection,
+    company_id: int,
+    as_of_date: date,
+) -> PriceRecord | None:
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            price_date,
+            open,
+            high,
+            low,
+            close,
+            adjusted_close,
+            volume,
+            currency,
+            source_id
+        FROM prices
+        WHERE company_id = ?
+        AND price_date <= ?
+        ORDER BY price_date DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return PriceRecord(
+        company_id=row["company_id"],
+        price_date=row["price_date"],
+        open=row["open"],
+        high=row["high"],
+        low=row["low"],
+        close=row["close"],
+        adjusted_close=row["adjusted_close"],
+        volume=row["volume"],
+        currency=row["currency"],
+        source_id=row["source_id"],
     )

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from datetime import date
 from src.db import connect, initialize_database
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.repository import (
@@ -253,3 +254,96 @@ def test_get_latest_price_date_returns_most_recent_date(
         )
 
     assert latest.isoformat() == "2026-09-18"
+
+def test_get_price_on_or_before_exact_date(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        from src.repository import get_price_on_or_before
+
+        price = get_price_on_or_before(
+            connection,
+            company_id,
+            date(2026, 9, 18),
+        )
+
+    assert price is not None
+    assert price.price_date == date(2026, 9, 18)
+    assert price.close == 51.0
+
+
+def test_get_price_on_or_before_uses_previous_session(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        from src.repository import get_price_on_or_before
+
+        price = get_price_on_or_before(
+            connection,
+            company_id,
+            date(2026, 9, 20),
+        )
+
+    assert price is not None
+    assert price.price_date == date(2026, 9, 18)
+    assert price.close == 51.0
+
+
+def test_get_price_on_or_before_returns_none_before_history(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        from src.repository import get_price_on_or_before
+
+        price = get_price_on_or_before(
+            connection,
+            company_id,
+            date(2026, 9, 17),
+        )
+
+    assert price is None
