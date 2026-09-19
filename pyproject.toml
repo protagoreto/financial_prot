@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.7",
     "python-dotenv>=1.0",
     "pytest>=8.0",
+    "yfinance>=0.2",
 ]
 
 [project.optional-dependencies]
