@@ -82,7 +82,7 @@ def insert_price_record(
     connection: sqlite3.Connection,
     record: PriceRecord,
 ) -> int:
-    cursor = connection.execute(
+    connection.execute(
         """
         INSERT INTO prices (
             company_id,
@@ -97,6 +97,17 @@ def insert_price_record(
             source_id
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+        ON CONFLICT(company_id, price_date)
+        DO UPDATE SET
+            open = excluded.open,
+            high = excluded.high,
+            low = excluded.low,
+            close = excluded.close,
+            adjusted_close = excluded.adjusted_close,
+            volume = excluded.volume,
+            currency = excluded.currency,
+            source_id = excluded.source_id
         """,
         (
             record.company_id,
@@ -112,5 +123,19 @@ def insert_price_record(
         ),
     )
 
+    row = connection.execute(
+        """
+        SELECT price_id
+        FROM prices
+        WHERE company_id = ?
+        AND price_date = ?
+        """,
+        (
+            record.company_id,
+            record.price_date.isoformat(),
+        ),
+    ).fetchone()
+
     connection.commit()
-    return cursor.lastrowid
+
+    return row["price_id"]

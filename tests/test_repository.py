@@ -137,3 +137,62 @@ def test_insert_price_record(tmp_path: Path):
     assert row["adjusted_close"] == 51.74
     assert row["volume"] == 6017239
     assert row["currency"] == "EUR"
+
+def test_insert_price_record_is_idempotent(tmp_path: Path):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        first_record = PriceRecord(
+            company_id=company_id,
+            price_date="2026-09-18",
+            open=52.30,
+            high=52.40,
+            low=51.54,
+            close=51.74,
+            adjusted_close=51.74,
+            volume=6017239,
+            currency="EUR",
+        )
+
+        first_id = insert_price_record(
+            connection,
+            first_record,
+        )
+
+        updated_record = PriceRecord(
+            company_id=company_id,
+            price_date="2026-09-18",
+            open=52.30,
+            high=52.40,
+            low=51.54,
+            close=51.75,
+            adjusted_close=51.75,
+            volume=6018000,
+            currency="EUR",
+        )
+
+        second_id = insert_price_record(
+            connection,
+            updated_record,
+        )
+
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM prices
+            WHERE company_id = ?
+            AND price_date = ?
+            """,
+            (
+                company_id,
+                "2026-09-18",
+            ),
+        ).fetchall()
+
+    assert first_id == second_id
+    assert len(rows) == 1
+    assert rows[0]["close"] == 51.75
+    assert rows[0]["volume"] == 6018000
