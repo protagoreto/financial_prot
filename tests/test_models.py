@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.models import EstimateRecord, FinancialRecord
 
 
@@ -73,4 +74,44 @@ def test_estimate_rejects_negative_analyst_count():
             fiscal_period_end="2027-12-31",
             estimate_date="2026-09-19",
             analyst_count=-1,
+        )
+
+def test_valid_price_record():
+    record = PriceRecord(
+        company_id=1,
+        price_date="2026-09-18",
+        open=10.0,
+        high=12.0,
+        low=9.5,
+        close=11.5,
+        adjusted_close=11.5,
+        volume=100000,
+        currency="EUR",
+    )
+
+    assert record.close == 11.5
+    assert record.high == 12.0
+
+
+def test_price_record_rejects_invalid_high():
+    with pytest.raises(ValidationError):
+        PriceRecord(
+            company_id=1,
+            price_date="2026-09-18",
+            open=10.0,
+            high=9.0,
+            low=8.0,
+            close=11.0,
+        )
+
+
+def test_price_record_rejects_invalid_low():
+    with pytest.raises(ValidationError):
+        PriceRecord(
+            company_id=1,
+            price_date="2026-09-18",
+            open=10.0,
+            high=12.0,
+            low=11.0,
+            close=9.0,
         )
