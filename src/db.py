@@ -40,6 +40,118 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 
 
+CREATE TABLE IF NOT EXISTS prices (
+    price_id INTEGER PRIMARY KEY,
+    company_id INTEGER NOT NULL,
+    price_date TEXT NOT NULL,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL NOT NULL,
+    adjusted_close REAL,
+    volume REAL,
+    currency TEXT,
+    source_id INTEGER,
+
+    FOREIGN KEY(company_id)
+        REFERENCES companies(company_id),
+
+    FOREIGN KEY(source_id)
+        REFERENCES sources(source_id),
+
+    UNIQUE(company_id, price_date)
+);
+
+
+CREATE TABLE IF NOT EXISTS financials (
+    financial_id INTEGER PRIMARY KEY,
+    company_id INTEGER NOT NULL,
+
+    statement_type TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    value REAL NOT NULL,
+    currency TEXT,
+
+    period_start TEXT,
+    period_end TEXT NOT NULL,
+    period_type TEXT NOT NULL,
+
+    publication_date TEXT,
+    source_id INTEGER,
+
+    FOREIGN KEY(company_id)
+        REFERENCES companies(company_id),
+
+    FOREIGN KEY(source_id)
+        REFERENCES sources(source_id),
+
+    UNIQUE(
+        company_id,
+        statement_type,
+        metric,
+        period_end,
+        period_type,
+        source_id
+    )
+);
+
+
+CREATE TABLE IF NOT EXISTS estimates (
+    estimate_id INTEGER PRIMARY KEY,
+    company_id INTEGER NOT NULL,
+
+    metric TEXT NOT NULL,
+    value REAL NOT NULL,
+    currency TEXT,
+
+    fiscal_period_end TEXT NOT NULL,
+    estimate_date TEXT NOT NULL,
+
+    analyst_count INTEGER,
+    source_id INTEGER,
+
+    FOREIGN KEY(company_id)
+        REFERENCES companies(company_id),
+
+    FOREIGN KEY(source_id)
+        REFERENCES sources(source_id),
+
+    UNIQUE(
+        company_id,
+        metric,
+        fiscal_period_end,
+        estimate_date,
+        source_id
+    )
+);
+
+
+CREATE TABLE IF NOT EXISTS dividends (
+    dividend_id INTEGER PRIMARY KEY,
+    company_id INTEGER NOT NULL,
+
+    ex_date TEXT NOT NULL,
+    payment_date TEXT,
+    amount REAL NOT NULL,
+    currency TEXT,
+
+    dividend_type TEXT,
+    source_id INTEGER,
+
+    FOREIGN KEY(company_id)
+        REFERENCES companies(company_id),
+
+    FOREIGN KEY(source_id)
+        REFERENCES sources(source_id),
+
+    UNIQUE(
+        company_id,
+        ex_date,
+        amount
+    )
+);
+
+
 CREATE TABLE IF NOT EXISTS analysis_runs (
     run_id INTEGER PRIMARY KEY,
     timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -53,6 +165,22 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
     FOREIGN KEY(company_id)
         REFERENCES companies(company_id)
 );
+
+
+CREATE INDEX IF NOT EXISTS idx_prices_company_date
+ON prices(company_id, price_date);
+
+
+CREATE INDEX IF NOT EXISTS idx_financials_company_period
+ON financials(company_id, period_end);
+
+
+CREATE INDEX IF NOT EXISTS idx_estimates_company_date
+ON estimates(company_id, estimate_date);
+
+
+CREATE INDEX IF NOT EXISTS idx_dividends_company_date
+ON dividends(company_id, ex_date);
 """
 
 
@@ -65,6 +193,8 @@ def connect(db_path: Path) -> sqlite3.Connection:
 
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
+
+    connection.execute("PRAGMA foreign_keys = ON")
 
     return connection
 
@@ -80,10 +210,10 @@ def initialize_database(db_path: Path) -> None:
 
         connection.execute(
             """
-            INSERT OR IGNORE INTO schema_meta(key, value)
+            INSERT OR REPLACE INTO schema_meta(key, value)
             VALUES (?, ?)
             """,
-            ("schema_version", "0.1.0"),
+            ("schema_version", "0.2.0"),
         )
 
         connection.commit()
