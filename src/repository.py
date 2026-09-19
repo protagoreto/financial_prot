@@ -1,7 +1,6 @@
 import sqlite3
 
-from src.models import EstimateRecord, FinancialRecord
-
+from src.models import EstimateRecord, FinancialRecord, PriceRecord
 
 def insert_financial_record(
     connection: sqlite3.Connection,
@@ -71,6 +70,44 @@ def insert_estimate_record(
             record.fiscal_period_end.isoformat(),
             record.estimate_date.isoformat(),
             record.analyst_count,
+            record.source_id,
+        ),
+    )
+
+    connection.commit()
+    return cursor.lastrowid
+
+
+def insert_price_record(
+    connection: sqlite3.Connection,
+    record: PriceRecord,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO prices (
+            company_id,
+            price_date,
+            open,
+            high,
+            low,
+            close,
+            adjusted_close,
+            volume,
+            currency,
+            source_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.company_id,
+            record.price_date.isoformat(),
+            record.open,
+            record.high,
+            record.low,
+            record.close,
+            record.adjusted_close,
+            record.volume,
+            record.currency,
             record.source_id,
         ),
     )

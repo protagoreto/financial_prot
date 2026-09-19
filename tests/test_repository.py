@@ -1,9 +1,12 @@
 from pathlib import Path
 
 from src.db import connect, initialize_database
-from src.models import EstimateRecord, FinancialRecord
-from src.repository import insert_estimate_record, insert_financial_record
-
+from src.models import EstimateRecord, FinancialRecord, PriceRecord
+from src.repository import (
+    insert_estimate_record,
+    insert_financial_record,
+    insert_price_record,
+)
 
 def create_company(connection) -> int:
     cursor = connection.execute(
@@ -95,3 +98,42 @@ def test_insert_estimate_record(tmp_path: Path):
     assert row["value"] == 2.50
     assert row["estimate_date"] == "2026-09-19"
     assert row["analyst_count"] == 12
+
+def test_insert_price_record(tmp_path: Path):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        record = PriceRecord(
+            company_id=company_id,
+            price_date="2026-09-18",
+            open=52.30,
+            high=52.40,
+            low=51.54,
+            close=51.74,
+            adjusted_close=51.74,
+            volume=6017239,
+            currency="EUR",
+        )
+
+        record_id = insert_price_record(
+            connection,
+            record,
+        )
+
+        row = connection.execute(
+            """
+            SELECT *
+            FROM prices
+            WHERE price_id = ?
+            """,
+            (record_id,),
+        ).fetchone()
+
+    assert row["price_date"] == "2026-09-18"
+    assert row["close"] == 51.74
+    assert row["adjusted_close"] == 51.74
+    assert row["volume"] == 6017239
+    assert row["currency"] == "EUR"
