@@ -161,3 +161,12 @@ def calculate_free_cash_flow(
         return None
 
     return operating_cash_flow - capex
+
+def calculate_net_debt(
+    total_debt: float,
+    cash: float,
+) -> float | None:
+    if total_debt < 0 or cash < 0:
+        return None
+
+    return total_debt - cash

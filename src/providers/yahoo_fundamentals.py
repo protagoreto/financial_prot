@@ -21,8 +21,8 @@ class YahooFundamentalsProvider(FundamentalsProvider):
     }
 
     BALANCE_METRICS = {
-        "CashCashEquivalentsAndShortTermInvestments":
-            FinancialMetric.CASH,
+        "CashAndCashEquivalents":
+    	    FinancialMetric.CASH,
         "TotalDebt":
             FinancialMetric.TOTAL_DEBT,
         "StockholdersEquity":

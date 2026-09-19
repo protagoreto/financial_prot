@@ -182,3 +182,18 @@ def test_non_capex_value_preserves_sign():
     )
 
     assert result == -500_000_000.0
+
+def test_cash_mapping_uses_cash_and_cash_equivalents():
+    provider = YahooFundamentalsProvider()
+
+    assert (
+        provider.BALANCE_METRICS[
+            "CashAndCashEquivalents"
+        ]
+        == FinancialMetric.CASH
+    )
+
+    assert (
+        "CashCashEquivalentsAndShortTermInvestments"
+        not in provider.BALANCE_METRICS
+    )

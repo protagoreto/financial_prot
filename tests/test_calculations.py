@@ -3,6 +3,7 @@ import pytest
 
 from src.calculations import (
     calculate_free_cash_flow,
+    calculate_net_debt,
     dividend_yield,
     earnings_yield,
     expected_annual_return,
@@ -13,7 +14,6 @@ from src.calculations import (
     required_purchase_pe,
     required_purchase_price,
 )
-
 def test_price_to_earnings():
     assert price_to_earnings(
         price=50.0,
@@ -200,3 +200,38 @@ def test_free_cash_flow_rejects_negative_capex():
     )
 
     assert result is None
+
+def test_calculate_net_debt():
+    result = calculate_net_debt(
+        total_debt=6_095_000_000.0,
+        cash=8_000_000_000.0,
+    )
+
+    assert result == pytest.approx(
+        -1_905_000_000.0
+    )
+
+
+def test_net_debt_allows_net_cash_position():
+    result = calculate_net_debt(
+        total_debt=2_000_000_000.0,
+        cash=5_000_000_000.0,
+    )
+
+    assert result == pytest.approx(
+        -3_000_000_000.0
+    )
+
+
+def test_net_debt_rejects_negative_debt():
+    assert calculate_net_debt(
+        total_debt=-1.0,
+        cash=100.0,
+    ) is None
+
+
+def test_net_debt_rejects_negative_cash():
+    assert calculate_net_debt(
+        total_debt=100.0,
+        cash=-1.0,
+    ) is None
