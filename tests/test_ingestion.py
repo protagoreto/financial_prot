@@ -6,9 +6,17 @@ from src.ingestion import (
     get_or_create_company,
     ingest_prices,
     ingest_prices_incremental,
+    ingest_financials,
 )
 from src.models import PriceRecord
 from src.providers.base import PriceProvider
+from src.metrics import (
+    FinancialMetric,
+    PeriodType,
+    StatementType,
+)
+from src.models import FinancialRecord
+from src.providers.fundamentals_base import FundamentalsProvider
 
 
 class DummyPriceProvider(PriceProvider):
@@ -283,3 +291,80 @@ def test_incremental_ingestion_tolerates_non_trading_start_date(
     assert count == 0
     assert len(rows) == 1
     assert rows[0]["price_date"] == "2020-01-02"
+
+class DummyFundamentalsProvider(
+    FundamentalsProvider
+):
+    @property
+    def name(self) -> str:
+        return "dummy"
+
+    def get_annual_financials(
+        self,
+        company_id: int,
+        symbol: str,
+    ) -> list[FinancialRecord]:
+        return [
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=(
+                    StatementType.INCOME_STATEMENT
+                ),
+                metric=FinancialMetric.REVENUE,
+                value=1_000_000.0,
+                period_end="2025-12-31",
+                period_type=PeriodType.ANNUAL,
+            )
+        ]
+
+def test_ingest_financials_adds_source_and_currency(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection=connection,
+            name="Test Company",
+            ticker="TEST",
+            exchange="BME",
+            currency="EUR",
+        )
+
+        count = ingest_financials(
+            connection=connection,
+            provider=DummyFundamentalsProvider(),
+            company_id=company_id,
+            symbol="TEST.MC",
+            currency="EUR",
+        )
+
+        row = connection.execute(
+            """
+            SELECT
+                f.metric,
+                f.value,
+                f.currency,
+                f.publication_date,
+                s.provider,
+                s.document_type
+            FROM financials AS f
+            JOIN sources AS s
+                ON s.source_id = f.source_id
+            WHERE f.company_id = ?
+            """,
+            (company_id,),
+        ).fetchone()
+
+    assert count == 1
+    assert row["metric"] == "revenue"
+    assert row["value"] == 1_000_000.0
+    assert row["currency"] == "EUR"
+
+    # Critical temporal rule:
+    # ingestion must not invent publication dates.
+    assert row["publication_date"] is None
+
+    assert row["provider"] == "dummy"
+    assert row["document_type"] == "annual_financials"

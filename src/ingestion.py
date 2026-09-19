@@ -1,11 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
 import sqlite3
 
-from src.models import PriceRecord
+from src.models import FinancialRecord, PriceRecord
 from src.providers.base import PriceProvider
-from src.repository import get_latest_price_date, insert_price_record
-
-
+from src.repository import (
+    insert_financial_record,
+    insert_price_record,
+)
 def get_or_create_company(
     connection: sqlite3.Connection,
     name: str,
@@ -153,8 +154,8 @@ def ingest_prices_incremental(
 
     # Backfill missing historical data.
     if (
-    	first_price_date is not None
-    	and (first_price_date - initial_start_date).days > 7
+        first_price_date is not None
+        and (first_price_date - initial_start_date).days > 7
     ):
         historical_end_date = first_price_date - timedelta(days=1)
 
@@ -197,3 +198,44 @@ def ingest_prices_incremental(
         )
 
     return total_processed
+
+def ingest_financials(
+    connection: sqlite3.Connection,
+    provider,
+    company_id: int,
+    symbol: str,
+    currency: str,
+) -> int:
+    source_id = create_source(
+        connection=connection,
+        provider=provider.name,
+        document_type="annual_financials",
+    )
+
+    records = provider.get_annual_financials(
+        company_id=company_id,
+        symbol=symbol,
+    )
+
+    processed = 0
+
+    for record in records:
+        enriched_record = FinancialRecord(
+            **record.model_dump(
+                exclude={
+                    "currency",
+                    "source_id",
+                }
+            ),
+            currency=currency,
+            source_id=source_id,
+        )
+
+        insert_financial_record(
+            connection,
+            enriched_record,
+        )
+
+        processed += 1
+
+    return processed
