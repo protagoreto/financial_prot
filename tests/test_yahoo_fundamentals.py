@@ -23,12 +23,12 @@ def test_normalize_income_statement():
             ],
         },
         index=[
-            "Total Revenue",
-            "EBITDA",
-            "EBIT",
-            "Net Income",
-            "Diluted EPS",
-        ],
+    		"TotalRevenue",
+    		"EBITDA",
+    		"EBIT",
+    		"NetIncome",
+    		"DilutedEPS",
+	    ],
     )
 
     provider = YahooFundamentalsProvider()
@@ -63,9 +63,9 @@ def test_normalizer_skips_missing_values():
             ],
         },
         index=[
-            "Total Revenue",
-            "EBITDA",
-        ],
+    		"TotalRevenue",
+    		"EBITDA",
+	    ],
     )
 
     provider = YahooFundamentalsProvider()
@@ -90,8 +90,8 @@ def test_normalizer_skips_unknown_metrics():
             ],
         },
         index=[
-            "Total Revenue",
-            "Unknown Yahoo Metric",
+    		"TotalRevenue",
+    		"UnknownYahooMetric",
         ],
     )
 
@@ -113,8 +113,8 @@ def test_normalized_records_do_not_invent_publication_date():
         {
             datetime(2025, 12, 31): [2.0],
         },
-        index=[
-            "Diluted EPS",
+      	 index=[
+    		"DilutedEPS",
         ],
     )
 
@@ -129,3 +129,56 @@ def test_normalized_records_do_not_invent_publication_date():
 
     assert len(records) == 1
     assert records[0].publication_date is None
+
+def test_supported_metric_maps_cover_core_financials():
+    provider = YahooFundamentalsProvider()
+
+    mapped_metrics = set(
+        provider.INCOME_METRICS.values()
+    )
+    mapped_metrics.update(
+        provider.BALANCE_METRICS.values()
+    )
+    mapped_metrics.update(
+        provider.CASH_FLOW_METRICS.values()
+    )
+
+    expected_metrics = {
+        FinancialMetric.REVENUE,
+        FinancialMetric.EBITDA,
+        FinancialMetric.EBIT,
+        FinancialMetric.NET_INCOME,
+        FinancialMetric.EPS,
+        FinancialMetric.OPERATING_CASH_FLOW,
+        FinancialMetric.CAPEX,
+        FinancialMetric.FREE_CASH_FLOW,
+        FinancialMetric.CASH,
+        FinancialMetric.TOTAL_DEBT,
+        FinancialMetric.EQUITY,
+        FinancialMetric.SHARES_OUTSTANDING,
+    }
+
+    assert expected_metrics.issubset(
+        mapped_metrics
+    )
+
+def test_capex_is_normalized_as_positive_investment():
+    provider = YahooFundamentalsProvider()
+
+    result = provider.normalize_metric_value(
+        metric=FinancialMetric.CAPEX,
+        value=-2_712_000_000.0,
+    )
+
+    assert result == 2_712_000_000.0
+
+
+def test_non_capex_value_preserves_sign():
+    provider = YahooFundamentalsProvider()
+
+    result = provider.normalize_metric_value(
+        metric=FinancialMetric.FREE_CASH_FLOW,
+        value=-500_000_000.0,
+    )
+
+    assert result == -500_000_000.0

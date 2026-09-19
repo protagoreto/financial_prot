@@ -152,3 +152,12 @@ def required_purchase_price(
         return None
 
     return forward_eps * purchase_pe
+
+def calculate_free_cash_flow(
+    operating_cash_flow: float,
+    capex: float,
+) -> float | None:
+    if capex < 0:
+        return None
+
+    return operating_cash_flow - capex

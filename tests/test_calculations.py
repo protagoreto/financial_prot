@@ -2,6 +2,7 @@ import pytest
 
 
 from src.calculations import (
+    calculate_free_cash_flow,
     dividend_yield,
     earnings_yield,
     expected_annual_return,
@@ -12,7 +13,6 @@ from src.calculations import (
     required_purchase_pe,
     required_purchase_price,
 )
-
 
 def test_price_to_earnings():
     assert price_to_earnings(
@@ -181,3 +181,22 @@ def test_required_purchase_price_rejects_negative_eps():
         terminal_pe=15.0,
         years=5,
     ) is None
+
+def test_calculate_free_cash_flow():
+    result = calculate_free_cash_flow(
+        operating_cash_flow=9_232_000_000.0,
+        capex=2_712_000_000.0,
+    )
+
+    assert result == pytest.approx(
+        6_520_000_000.0
+    )
+
+
+def test_free_cash_flow_rejects_negative_capex():
+    result = calculate_free_cash_flow(
+        operating_cash_flow=9_232_000_000.0,
+        capex=-2_712_000_000.0,
+    )
+
+    assert result is None

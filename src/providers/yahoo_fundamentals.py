@@ -13,28 +13,30 @@ from src.providers.fundamentals_base import FundamentalsProvider
 class YahooFundamentalsProvider(FundamentalsProvider):
 
     INCOME_METRICS = {
-        "Total Revenue": FinancialMetric.REVENUE,
+        "TotalRevenue": FinancialMetric.REVENUE,
         "EBITDA": FinancialMetric.EBITDA,
         "EBIT": FinancialMetric.EBIT,
-        "Net Income": FinancialMetric.NET_INCOME,
-        "Diluted EPS": FinancialMetric.EPS,
+        "NetIncome": FinancialMetric.NET_INCOME,
+        "DilutedEPS": FinancialMetric.EPS,
     }
 
     BALANCE_METRICS = {
-        "Cash Cash Equivalents And Short Term Investments":
+        "CashCashEquivalentsAndShortTermInvestments":
             FinancialMetric.CASH,
-        "Total Debt": FinancialMetric.TOTAL_DEBT,
-        "Stockholders Equity": FinancialMetric.EQUITY,
-        "Ordinary Shares Number":
+        "TotalDebt":
+            FinancialMetric.TOTAL_DEBT,
+        "StockholdersEquity":
+            FinancialMetric.EQUITY,
+        "OrdinarySharesNumber":
             FinancialMetric.SHARES_OUTSTANDING,
     }
 
     CASH_FLOW_METRICS = {
-        "Operating Cash Flow":
+        "OperatingCashFlow":
             FinancialMetric.OPERATING_CASH_FLOW,
-        "Capital Expenditure":
+        "CapitalExpenditure":
             FinancialMetric.CAPEX,
-        "Free Cash Flow":
+        "FreeCashFlow":
             FinancialMetric.FREE_CASH_FLOW,
     }
 
@@ -113,10 +115,30 @@ class YahooFundamentalsProvider(FundamentalsProvider):
                         company_id=company_id,
                         statement_type=statement_type,
                         metric=metric,
-                        value=float(value),
+                        value=self.normalize_metric_value(
+    			metric=metric,
+    			value=float(value),
+			),
                         period_end=period_end.date(),
                         period_type=PeriodType.ANNUAL,
                     )
                 )
 
         return records
+
+    @staticmethod
+    def _optional_float(value):
+        if value is None or pd.isna(value):
+            return None
+
+        return float(value)
+
+    @staticmethod
+    def normalize_metric_value(
+        metric: FinancialMetric,
+        value: float,
+    ) -> float:
+        if metric == FinancialMetric.CAPEX:
+            return abs(value)
+
+        return value
