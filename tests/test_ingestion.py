@@ -7,6 +7,7 @@ from src.ingestion import (
     ingest_prices,
     ingest_prices_incremental,
     ingest_financials,
+    create_source,
 )
 from src.models import PriceRecord
 from src.providers.base import PriceProvider
@@ -368,3 +369,41 @@ def test_ingest_financials_adds_source_and_currency(
 
     assert row["provider"] == "dummy"
     assert row["document_type"] == "annual_financials"
+
+def test_create_source_with_full_provenance(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        source_id = create_source(
+            connection=connection,
+            provider="inditex",
+            document_type="annual_results",
+            url="https://example.com/annual-results",
+            publication_date=date(2026, 3, 11),
+            confidence="primary",
+        )
+
+        row = connection.execute(
+            """
+            SELECT
+                provider,
+                url,
+                publication_date,
+                document_type,
+                confidence
+            FROM sources
+            WHERE source_id = ?
+            """,
+            (source_id,),
+        ).fetchone()
+
+    assert row["provider"] == "inditex"
+    assert row["url"] == (
+        "https://example.com/annual-results"
+    )
+    assert row["publication_date"] == "2026-03-11"
+    assert row["document_type"] == "annual_results"
+    assert row["confidence"] == "primary"

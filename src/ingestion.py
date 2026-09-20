@@ -53,22 +53,33 @@ def create_source(
     connection: sqlite3.Connection,
     provider: str,
     document_type: str,
+    url: str | None = None,
+    publication_date: date | None = None,
+    confidence: str = "secondary",
 ) -> int:
     cursor = connection.execute(
         """
         INSERT INTO sources (
             provider,
+            url,
             retrieved_at,
+            publication_date,
             document_type,
             confidence
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             provider,
+            url,
             datetime.now(timezone.utc).isoformat(),
+            (
+                publication_date.isoformat()
+                if publication_date
+                else None
+            ),
             document_type,
-            "secondary",
+            confidence,
         ),
     )
 
