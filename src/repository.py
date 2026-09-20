@@ -1,7 +1,9 @@
 import sqlite3
+from datetime import date
 
 
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
+from src.metrics import FinancialMetric, PeriodType
 
 
 def insert_financial_record(
@@ -311,3 +313,41 @@ def get_latest_estimate_on_or_before(
         analyst_count=row["analyst_count"],
         source_id=row["source_id"],
     )
+
+def insert_publication_date(
+    connection: sqlite3.Connection,
+    company_id: int,
+    period_end: date,
+    period_type: PeriodType,
+    publication_date: date,
+    source_id: int,
+) -> int:
+    if publication_date < period_end:
+        raise ValueError(
+            "Publication date cannot be earlier "
+            "than period end."
+        )
+
+    cursor = connection.execute(
+        """
+        INSERT INTO publication_dates (
+            company_id,
+            period_end,
+            period_type,
+            publication_date,
+            source_id
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            company_id,
+            period_end.isoformat(),
+            period_type.value,
+            publication_date.isoformat(),
+            source_id,
+        ),
+    )
+
+    connection.commit()
+
+    return cursor.lastrowid

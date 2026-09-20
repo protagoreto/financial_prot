@@ -7,6 +7,7 @@ from src.repository import (
     insert_estimate_record,
     insert_financial_record,
     insert_price_record,
+    insert_publication_date,
 )
 from src.metrics import FinancialMetric, PeriodType, StatementType
 from src.repository import get_latest_financial_on_or_before
@@ -621,3 +622,61 @@ def test_financial_without_publication_date_is_not_point_in_time_available(
         )
 
     assert result is None
+
+def test_insert_publication_date_with_provenance(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        source_id = connection.execute(
+            """
+            INSERT INTO sources (
+                provider,
+                retrieved_at,
+                document_type,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "official",
+                "2026-09-20T10:00:00+00:00",
+                "annual_results",
+                "primary",
+            ),
+        ).lastrowid
+
+        publication_date_id = insert_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+            publication_date=date(2026, 3, 11),
+            source_id=source_id,
+        )
+
+        row = connection.execute(
+            """
+            SELECT
+                pd.period_end,
+                pd.period_type,
+                pd.publication_date,
+                s.provider,
+                s.confidence
+            FROM publication_dates AS pd
+            JOIN sources AS s
+                ON s.source_id = pd.source_id
+            WHERE pd.publication_date_id = ?
+            """,
+            (publication_date_id,),
+        ).fetchone()
+
+    assert row["period_end"] == "2026-01-31"
+    assert row["period_type"] == "annual"
+    assert row["publication_date"] == "2026-03-11"
+    assert row["provider"] == "official"
+    assert row["confidence"] == "primary"
