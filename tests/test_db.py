@@ -48,7 +48,7 @@ def test_schema_version(tmp_path: Path):
             """
         ).fetchone()
 
-    assert row["value"] == "0.2.0"
+    assert row["value"] == "0.3.0"
 
 
 def test_foreign_keys_are_enabled(tmp_path: Path):
@@ -90,3 +90,38 @@ def test_financial_tables_have_expected_indexes(tmp_path: Path):
     }
 
     assert expected_indexes.issubset(indexes)
+
+def test_publication_dates_table_exists(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+            AND name = 'publication_dates'
+            """
+        ).fetchone()
+
+    assert row is not None
+
+
+def test_schema_version_is_0_3_0(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT value
+            FROM schema_meta
+            WHERE key = 'schema_version'
+            """
+        ).fetchone()
+
+    assert row is not None
+    assert row["value"] == "0.3.0"

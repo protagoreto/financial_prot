@@ -95,6 +95,25 @@ CREATE TABLE IF NOT EXISTS financials (
     )
 );
 
+CREATE TABLE IF NOT EXISTS publication_dates (
+    publication_date_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    period_end TEXT NOT NULL,
+    period_type TEXT NOT NULL,
+    publication_date TEXT NOT NULL,
+    source_id INTEGER NOT NULL,
+    FOREIGN KEY (company_id)
+        REFERENCES companies(company_id),
+    FOREIGN KEY (source_id)
+        REFERENCES sources(source_id),
+    UNIQUE (
+        company_id,
+        period_end,
+        period_type,
+        source_id
+    )
+);
+
 
 CREATE TABLE IF NOT EXISTS estimates (
     estimate_id INTEGER PRIMARY KEY,
@@ -213,7 +232,7 @@ def initialize_database(db_path: Path) -> None:
             INSERT OR REPLACE INTO schema_meta(key, value)
             VALUES (?, ?)
             """,
-            ("schema_version", "0.2.0"),
+            ("schema_version", "0.3.0"),
         )
 
         connection.commit()
