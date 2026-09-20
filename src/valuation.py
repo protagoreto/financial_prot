@@ -6,15 +6,10 @@ import sqlite3
 from src.calculations import earnings_yield, price_to_earnings
 from src.metrics import FinancialMetric, PeriodType
 from src.repository import (
-    get_latest_financial_on_or_before,
-    get_price_on_or_before,
-)
-from src.repository import (
     get_latest_estimate_on_or_before,
     get_latest_financial_on_or_before,
     get_price_on_or_before,
 )
-
 
 @dataclass(frozen=True)
 class ValuationSnapshot:
