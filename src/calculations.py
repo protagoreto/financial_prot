@@ -179,3 +179,13 @@ def growth_rate(
         return None
 
     return current_value / previous_value - 1
+
+
+def margin(
+    value: float,
+    revenue: float,
+) -> float | None:
+    if revenue <= 0:
+        return None
+
+    return value / revenue

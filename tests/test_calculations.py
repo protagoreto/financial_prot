@@ -14,6 +14,9 @@ from src.calculations import (
     required_eps_growth,
     required_purchase_pe,
     required_purchase_price,
+    growth_rate,
+    margin,
+    net_debt_to_ebitda,
 )
 
 def test_price_to_earnings():
@@ -281,3 +284,43 @@ def test_growth_rate_preserves_negative_values():
     )
 
     assert result == pytest.approx(-0.50)
+
+def test_margin_positive():
+    result = margin(
+        value=20.0,
+        revenue=100.0,
+    )
+
+    assert result == pytest.approx(0.20)
+
+
+def test_margin_negative():
+    result = margin(
+        value=-10.0,
+        revenue=100.0,
+    )
+
+    assert result == pytest.approx(-0.10)
+
+
+def test_margin_zero():
+    result = margin(
+        value=0.0,
+        revenue=100.0,
+    )
+
+    assert result == pytest.approx(0.0)
+
+
+def test_margin_rejects_zero_revenue():
+    assert margin(
+        value=20.0,
+        revenue=0.0,
+    ) is None
+
+
+def test_margin_rejects_negative_revenue():
+    assert margin(
+        value=20.0,
+        revenue=-100.0,
+    ) is None
