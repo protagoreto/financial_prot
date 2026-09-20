@@ -352,6 +352,26 @@ def insert_publication_date(
             "than period end."
         )
 
+    existing = connection.execute(
+        """
+        SELECT publication_date_id
+        FROM publication_dates
+        WHERE company_id = ?
+        AND period_end = ?
+        AND period_type = ?
+        AND publication_date = ?
+        """,
+        (
+            company_id,
+            period_end.isoformat(),
+            period_type.value,
+            publication_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if existing is not None:
+        return existing["publication_date_id"]
+
     cursor = connection.execute(
         """
         INSERT INTO publication_dates (
@@ -375,7 +395,6 @@ def insert_publication_date(
     connection.commit()
 
     return cursor.lastrowid
-
 def get_verified_publication_date(
     connection: sqlite3.Connection,
     company_id: int,
