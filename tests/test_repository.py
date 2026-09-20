@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from datetime import date
+import pytest
 from src.db import connect, initialize_database
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.repository import (
@@ -14,6 +15,7 @@ from src.repository import get_latest_financial_on_or_before
 from src.models import EstimateRecord
 from src.repository import get_latest_estimate_on_or_before
 from src.repository import get_verified_publication_date
+from src.repository import get_financial_for_period_on_or_before
 
 def create_company(connection) -> int:
     cursor = connection.execute(
@@ -903,3 +905,66 @@ def test_insert_publication_date_is_idempotent(
 
     assert first_id == second_id
     assert count == 1
+
+
+def test_get_financial_for_period_respects_publication_date(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=(
+                    StatementType.INCOME_STATEMENT
+                ),
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                currency="EUR",
+                period_end="2026-01-31",
+                period_type=PeriodType.ANNUAL,
+                publication_date="2026-03-11",
+            ),
+        )
+
+        before_publication = (
+            get_financial_for_period_on_or_before(
+                connection=connection,
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                period_end=date(2026, 1, 31),
+                as_of_date=date(2026, 3, 10),
+                period_type=PeriodType.ANNUAL,
+            )
+        )
+
+        on_publication = (
+            get_financial_for_period_on_or_before(
+                connection=connection,
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                period_end=date(2026, 1, 31),
+                as_of_date=date(2026, 3, 11),
+                period_type=PeriodType.ANNUAL,
+            )
+        )
+
+    assert before_publication is None
+
+    assert on_publication is not None
+    assert on_publication.value == pytest.approx(2.0)
+    assert on_publication.period_end == date(
+        2026,
+        1,
+        31,
+    )
+    assert on_publication.publication_date == date(
+        2026,
+        3,
+        11,
+    )

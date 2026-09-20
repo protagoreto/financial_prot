@@ -290,6 +290,87 @@ def get_latest_financial_on_or_before(
         ],
         source_id=row["source_id"],
     )
+
+def get_financial_for_period_on_or_before(
+    connection: sqlite3.Connection,
+    company_id: int,
+    metric: FinancialMetric,
+    period_end: date,
+    as_of_date: date,
+    period_type: PeriodType,
+) -> FinancialRecord | None:
+    row = connection.execute(
+        """
+        SELECT
+            f.company_id,
+            f.statement_type,
+            f.metric,
+            f.value,
+            f.currency,
+            f.period_start,
+            f.period_end,
+            f.period_type,
+            COALESCE(
+                f.publication_date,
+                (
+                    SELECT pd.publication_date
+                    FROM publication_dates AS pd
+                    WHERE pd.company_id = f.company_id
+                    AND pd.period_end = f.period_end
+                    AND pd.period_type = f.period_type
+                    ORDER BY pd.publication_date DESC
+                    LIMIT 1
+                )
+            ) AS effective_publication_date,
+            f.source_id
+        FROM financials AS f
+        WHERE f.company_id = ?
+        AND f.metric = ?
+        AND f.period_end = ?
+        AND f.period_type = ?
+        AND COALESCE(
+            f.publication_date,
+            (
+                SELECT pd.publication_date
+                FROM publication_dates AS pd
+                WHERE pd.company_id = f.company_id
+                AND pd.period_end = f.period_end
+                AND pd.period_type = f.period_type
+                ORDER BY pd.publication_date DESC
+                LIMIT 1
+            )
+        ) <= ?
+        ORDER BY effective_publication_date DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            metric.value,
+            period_end.isoformat(),
+            period_type.value,
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return FinancialRecord(
+        company_id=row["company_id"],
+        statement_type=row["statement_type"],
+        metric=row["metric"],
+        value=row["value"],
+        currency=row["currency"],
+        period_start=row["period_start"],
+        period_end=row["period_end"],
+        period_type=row["period_type"],
+        publication_date=row[
+            "effective_publication_date"
+        ],
+        source_id=row["source_id"],
+    )
+
+
 def get_latest_estimate_on_or_before(
     connection: sqlite3.Connection,
     company_id: int,
