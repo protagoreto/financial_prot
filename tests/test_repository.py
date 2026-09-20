@@ -744,3 +744,105 @@ def test_get_verified_publication_date_returns_none_when_unknown(
         )
 
     assert result is None
+
+
+def test_verified_publication_date_controls_point_in_time_access(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        financial_source_id = connection.execute(
+            """
+            INSERT INTO sources (
+                provider,
+                retrieved_at,
+                document_type,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "yahoo",
+                "2026-09-20T10:00:00+00:00",
+                "annual_financials",
+                "secondary",
+            ),
+        ).lastrowid
+
+        publication_source_id = connection.execute(
+            """
+            INSERT INTO sources (
+                provider,
+                retrieved_at,
+                document_type,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "official",
+                "2026-09-20T10:00:00+00:00",
+                "annual_results",
+                "primary",
+            ),
+        ).lastrowid
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=(
+                    StatementType.INCOME_STATEMENT
+                ),
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                currency="EUR",
+                period_end=date(2026, 1, 31),
+                period_type=PeriodType.ANNUAL,
+                publication_date=None,
+                source_id=financial_source_id,
+            ),
+        )
+
+        insert_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+            publication_date=date(2026, 3, 11),
+            source_id=publication_source_id,
+        )
+
+        before_publication = (
+            get_latest_financial_on_or_before(
+                connection=connection,
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                as_of_date=date(2026, 3, 10),
+                period_type=PeriodType.ANNUAL,
+            )
+        )
+
+        on_publication = (
+            get_latest_financial_on_or_before(
+                connection=connection,
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                as_of_date=date(2026, 3, 11),
+                period_type=PeriodType.ANNUAL,
+            )
+        )
+
+    assert before_publication is None
+
+    assert on_publication is not None
+    assert on_publication.value == 2.0
+    assert on_publication.publication_date == date(
+        2026,
+        3,
+        11,
+    )
