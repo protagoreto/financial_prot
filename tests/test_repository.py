@@ -13,6 +13,7 @@ from src.metrics import FinancialMetric, PeriodType, StatementType
 from src.repository import get_latest_financial_on_or_before
 from src.models import EstimateRecord
 from src.repository import get_latest_estimate_on_or_before
+from src.repository import get_verified_publication_date
 
 def create_company(connection) -> int:
     cursor = connection.execute(
@@ -680,3 +681,66 @@ def test_insert_publication_date_with_provenance(
     assert row["publication_date"] == "2026-03-11"
     assert row["provider"] == "official"
     assert row["confidence"] == "primary"
+
+def test_get_verified_publication_date(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        source_id = connection.execute(
+            """
+            INSERT INTO sources (
+                provider,
+                retrieved_at,
+                document_type,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "official",
+                "2026-09-20T10:00:00+00:00",
+                "annual_results",
+                "primary",
+            ),
+        ).lastrowid
+
+        insert_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+            publication_date=date(2026, 3, 11),
+            source_id=source_id,
+        )
+
+        result = get_verified_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert result == date(2026, 3, 11)
+
+def test_get_verified_publication_date_returns_none_when_unknown(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        result = get_verified_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert result is None

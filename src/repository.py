@@ -351,3 +351,33 @@ def insert_publication_date(
     connection.commit()
 
     return cursor.lastrowid
+
+def get_verified_publication_date(
+    connection: sqlite3.Connection,
+    company_id: int,
+    period_end: date,
+    period_type: PeriodType,
+) -> date | None:
+    row = connection.execute(
+        """
+        SELECT publication_date
+        FROM publication_dates
+        WHERE company_id = ?
+        AND period_end = ?
+        AND period_type = ?
+        ORDER BY publication_date DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            period_end.isoformat(),
+            period_type.value,
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return date.fromisoformat(
+        row["publication_date"]
+    )
