@@ -8,12 +8,14 @@ from src.calculations import (
     earnings_yield,
     expected_annual_return,
     free_cash_flow_yield,
+    growth_rate,
     net_debt_to_ebitda,
     price_to_earnings,
     required_eps_growth,
     required_purchase_pe,
     required_purchase_price,
 )
+
 def test_price_to_earnings():
     assert price_to_earnings(
         price=50.0,
@@ -235,3 +237,47 @@ def test_net_debt_rejects_negative_cash():
         total_debt=100.0,
         cash=-1.0,
     ) is None
+
+def test_growth_rate_positive():
+    result = growth_rate(
+        current_value=110.0,
+        previous_value=100.0,
+    )
+
+    assert result == pytest.approx(0.10)
+
+
+def test_growth_rate_negative():
+    result = growth_rate(
+        current_value=90.0,
+        previous_value=100.0,
+    )
+
+    assert result == pytest.approx(-0.10)
+
+
+def test_growth_rate_no_change():
+    result = growth_rate(
+        current_value=100.0,
+        previous_value=100.0,
+    )
+
+    assert result == pytest.approx(0.0)
+
+
+def test_growth_rate_rejects_zero_previous_value():
+    result = growth_rate(
+        current_value=100.0,
+        previous_value=0.0,
+    )
+
+    assert result is None
+
+
+def test_growth_rate_preserves_negative_values():
+    result = growth_rate(
+        current_value=-50.0,
+        previous_value=-100.0,
+    )
+
+    assert result == pytest.approx(-0.50)

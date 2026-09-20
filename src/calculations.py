@@ -170,3 +170,12 @@ def calculate_net_debt(
         return None
 
     return total_debt - cash
+
+def growth_rate(
+    current_value: float,
+    previous_value: float,
+) -> float | None:
+    if previous_value == 0:
+        return None
+
+    return current_value / previous_value - 1
