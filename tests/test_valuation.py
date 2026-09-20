@@ -10,6 +10,11 @@ from src.repository import (
     insert_price_record,
     insert_estimate_record,
 )
+from src.metrics import (
+    FinancialMetric,
+    PeriodType,
+    StatementType,
+)
 from src.valuation import (
     build_forward_valuation_snapshot,
     build_valuation_snapshot,
@@ -314,6 +319,49 @@ def test_forward_snapshot_returns_none_without_known_estimate(
             company_id=company_id,
             as_of_date=date(2026, 5, 15),
             fiscal_period_end=date(2026, 12, 31),
+        )
+
+    assert snapshot is None
+
+def test_trailing_snapshot_rejects_unpublished_financial(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=50.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=(
+                    StatementType.INCOME_STATEMENT
+                ),
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                currency="EUR",
+                period_end="2026-01-31",
+                period_type=PeriodType.ANNUAL,
+                publication_date=None,
+            ),
+        )
+
+        snapshot = build_valuation_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 9, 18),
         )
 
     assert snapshot is None

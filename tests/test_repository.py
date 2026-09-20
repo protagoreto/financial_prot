@@ -8,7 +8,7 @@ from src.repository import (
     insert_financial_record,
     insert_price_record,
 )
-from src.metrics import FinancialMetric, PeriodType
+from src.metrics import FinancialMetric, PeriodType, StatementType
 from src.repository import get_latest_financial_on_or_before
 from src.models import EstimateRecord
 from src.repository import get_latest_estimate_on_or_before
@@ -585,3 +585,39 @@ def test_estimate_query_uses_latest_known_revision(
     assert estimate is not None
     assert estimate.value == 3.00
     assert estimate.estimate_date == date(2026, 3, 1)
+
+
+def test_financial_without_publication_date_is_not_point_in_time_available(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=(
+                    StatementType.INCOME_STATEMENT
+                ),
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                currency="EUR",
+                period_end="2026-01-31",
+                period_type=PeriodType.ANNUAL,
+                publication_date=None,
+            ),
+        )
+
+        result = get_latest_financial_on_or_before(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 12, 31),
+            period_type=PeriodType.ANNUAL,
+        )
+
+    assert result is None
