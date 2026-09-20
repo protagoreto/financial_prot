@@ -846,3 +846,60 @@ def test_verified_publication_date_controls_point_in_time_access(
         3,
         11,
     )
+
+def test_insert_publication_date_is_idempotent(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        source_id = connection.execute(
+            """
+            INSERT INTO sources (
+                provider,
+                retrieved_at,
+                document_type,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "official",
+                "2026-09-20T10:00:00+00:00",
+                "annual_results",
+                "primary",
+            ),
+        ).lastrowid
+
+        first_id = insert_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+            publication_date=date(2026, 3, 11),
+            source_id=source_id,
+        )
+
+        second_id = insert_publication_date(
+            connection=connection,
+            company_id=company_id,
+            period_end=date(2026, 1, 31),
+            period_type=PeriodType.ANNUAL,
+            publication_date=date(2026, 3, 11),
+            source_id=source_id,
+        )
+
+        count = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM publication_dates
+            WHERE company_id = ?
+            """,
+            (company_id,),
+        ).fetchone()["count"]
+
+    assert first_id == second_id
+    assert count == 1
