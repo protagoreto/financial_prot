@@ -189,3 +189,17 @@ def margin(
         return None
 
     return value / revenue
+
+def return_on_equity(
+    net_income: float,
+    beginning_equity: float,
+    ending_equity: float,
+) -> float | None:
+    average_equity = (
+        beginning_equity + ending_equity
+    ) / 2
+
+    if average_equity <= 0:
+        return None
+
+    return net_income / average_equity

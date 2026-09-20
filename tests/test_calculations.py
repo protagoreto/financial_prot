@@ -17,6 +17,7 @@ from src.calculations import (
     growth_rate,
     margin,
     net_debt_to_ebitda,
+    return_on_equity,
 )
 
 def test_price_to_earnings():
@@ -324,3 +325,52 @@ def test_margin_rejects_negative_revenue():
         value=20.0,
         revenue=-100.0,
     ) is None
+
+def test_return_on_equity():
+    result = return_on_equity(
+        net_income=20.0,
+        beginning_equity=90.0,
+        ending_equity=110.0,
+    )
+
+    assert result == pytest.approx(0.20)
+
+
+def test_return_on_equity_with_loss():
+    result = return_on_equity(
+        net_income=-20.0,
+        beginning_equity=90.0,
+        ending_equity=110.0,
+    )
+
+    assert result == pytest.approx(-0.20)
+
+
+def test_return_on_equity_uses_average_equity():
+    result = return_on_equity(
+        net_income=30.0,
+        beginning_equity=100.0,
+        ending_equity=200.0,
+    )
+
+    assert result == pytest.approx(0.20)
+
+
+def test_return_on_equity_rejects_zero_average_equity():
+    result = return_on_equity(
+        net_income=20.0,
+        beginning_equity=-100.0,
+        ending_equity=100.0,
+    )
+
+    assert result is None
+
+
+def test_return_on_equity_rejects_negative_average_equity():
+    result = return_on_equity(
+        net_income=20.0,
+        beginning_equity=-200.0,
+        ending_equity=100.0,
+    )
+
+    assert result is None
