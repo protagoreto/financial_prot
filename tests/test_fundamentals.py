@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 from src.db import connect, initialize_database
-from src.fundamentals import build_fundamental_snapshot
+from src.fundamentals import (
+    build_fundamental_growth_snapshot,
+    build_fundamental_snapshot,
+)
 from src.metrics import (
     FinancialMetric,
     PeriodType,
@@ -332,3 +335,337 @@ def test_fundamental_snapshot_rejects_unpublished_period(
         )
 
     assert snapshot is None
+
+def insert_growth_period(
+    connection,
+    company_id: int,
+    period_end: str,
+    publication_date: str,
+    values: dict[FinancialMetric, float],
+) -> None:
+    statement_types = {
+        FinancialMetric.REVENUE: (
+            StatementType.INCOME_STATEMENT
+        ),
+        FinancialMetric.EBITDA: (
+            StatementType.INCOME_STATEMENT
+        ),
+        FinancialMetric.EBIT: (
+            StatementType.INCOME_STATEMENT
+        ),
+        FinancialMetric.NET_INCOME: (
+            StatementType.INCOME_STATEMENT
+        ),
+        FinancialMetric.EPS: StatementType.PER_SHARE,
+        FinancialMetric.FREE_CASH_FLOW: (
+            StatementType.CASH_FLOW
+        ),
+        FinancialMetric.SHARES_OUTSTANDING: (
+            StatementType.PER_SHARE
+        ),
+        FinancialMetric.EQUITY: (
+            StatementType.BALANCE_SHEET
+        ),
+    }
+
+    for metric, value in values.items():
+        insert_financial_record(
+            connection,
+            FinancialRecord(
+                company_id=company_id,
+                statement_type=statement_types[metric],
+                metric=metric,
+                value=value,
+                currency="EUR",
+                period_end=period_end,
+                period_type=PeriodType.ANNUAL,
+                publication_date=publication_date,
+            ),
+        )
+
+
+def test_build_fundamental_growth_snapshot(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2024-12-31",
+            publication_date="2025-02-20",
+            values={
+                FinancialMetric.REVENUE: 1_000.0,
+                FinancialMetric.EBITDA: 200.0,
+                FinancialMetric.EBIT: 150.0,
+                FinancialMetric.NET_INCOME: 100.0,
+                FinancialMetric.EPS: 2.0,
+                FinancialMetric.FREE_CASH_FLOW: 120.0,
+                FinancialMetric.SHARES_OUTSTANDING: 50.0,
+                FinancialMetric.EQUITY: 500.0,
+            },
+        )
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2025-12-31",
+            publication_date="2026-02-20",
+            values={
+                FinancialMetric.REVENUE: 1_100.0,
+                FinancialMetric.EBITDA: 230.0,
+                FinancialMetric.EBIT: 165.0,
+                FinancialMetric.NET_INCOME: 120.0,
+                FinancialMetric.EPS: 2.5,
+                FinancialMetric.FREE_CASH_FLOW: 150.0,
+                FinancialMetric.SHARES_OUTSTANDING: 48.0,
+                FinancialMetric.EQUITY: 550.0,
+            },
+        )
+
+        snapshot = build_fundamental_growth_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 1),
+        )
+
+    assert snapshot is not None
+
+    assert snapshot.current_period_end == date(
+        2025,
+        12,
+        31,
+    )
+    assert snapshot.previous_period_end == date(
+        2024,
+        12,
+        31,
+    )
+
+    assert snapshot.revenue_growth == pytest.approx(
+        0.10
+    )
+    assert snapshot.ebitda_growth == pytest.approx(
+        0.15
+    )
+    assert snapshot.ebit_growth == pytest.approx(
+        0.10
+    )
+    assert snapshot.net_income_growth == pytest.approx(
+        0.20
+    )
+    assert snapshot.eps_growth == pytest.approx(
+        0.25
+    )
+    assert snapshot.free_cash_flow_growth == pytest.approx(
+        0.25
+    )
+    assert snapshot.shares_growth == pytest.approx(
+        -0.04
+    )
+
+    assert snapshot.return_on_equity == pytest.approx(
+        120.0 / 525.0
+    )
+
+
+def test_growth_snapshot_respects_point_in_time(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        previous_values = {
+            FinancialMetric.REVENUE: 1_000.0,
+            FinancialMetric.EBITDA: 200.0,
+            FinancialMetric.EBIT: 150.0,
+            FinancialMetric.NET_INCOME: 100.0,
+            FinancialMetric.EPS: 2.0,
+            FinancialMetric.FREE_CASH_FLOW: 120.0,
+            FinancialMetric.SHARES_OUTSTANDING: 50.0,
+            FinancialMetric.EQUITY: 500.0,
+        }
+
+        current_values = {
+            FinancialMetric.REVENUE: 1_100.0,
+            FinancialMetric.EBITDA: 230.0,
+            FinancialMetric.EBIT: 165.0,
+            FinancialMetric.NET_INCOME: 120.0,
+            FinancialMetric.EPS: 2.5,
+            FinancialMetric.FREE_CASH_FLOW: 150.0,
+            FinancialMetric.SHARES_OUTSTANDING: 48.0,
+            FinancialMetric.EQUITY: 550.0,
+        }
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2024-12-31",
+            publication_date="2025-02-20",
+            values=previous_values,
+        )
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2025-12-31",
+            publication_date="2026-03-11",
+            values=current_values,
+        )
+
+        before = build_fundamental_growth_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 10),
+        )
+
+        on_publication = (
+            build_fundamental_growth_snapshot(
+                connection=connection,
+                company_id=company_id,
+                as_of_date=date(2026, 3, 11),
+            )
+        )
+
+    assert before is None
+    assert on_publication is not None
+    assert on_publication.current_period_end == date(
+        2025,
+        12,
+        31,
+    )
+
+
+def test_growth_snapshot_rejects_incomplete_current_period(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        previous_values = {
+            FinancialMetric.REVENUE: 1_000.0,
+            FinancialMetric.EBITDA: 200.0,
+            FinancialMetric.EBIT: 150.0,
+            FinancialMetric.NET_INCOME: 100.0,
+            FinancialMetric.EPS: 2.0,
+            FinancialMetric.FREE_CASH_FLOW: 120.0,
+            FinancialMetric.SHARES_OUTSTANDING: 50.0,
+            FinancialMetric.EQUITY: 500.0,
+        }
+
+        current_values = {
+            FinancialMetric.REVENUE: 1_100.0,
+            FinancialMetric.EBITDA: 230.0,
+            FinancialMetric.EBIT: 165.0,
+            FinancialMetric.NET_INCOME: 120.0,
+            FinancialMetric.EPS: 2.5,
+            FinancialMetric.FREE_CASH_FLOW: 150.0,
+            FinancialMetric.SHARES_OUTSTANDING: 48.0,
+        }
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2024-12-31",
+            publication_date="2025-02-20",
+            values=previous_values,
+        )
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2025-12-31",
+            publication_date="2026-02-20",
+            values=current_values,
+        )
+
+        snapshot = build_fundamental_growth_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 1),
+        )
+
+    assert snapshot is None
+
+
+def test_growth_snapshot_skips_incomplete_previous_period(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        complete_2023 = {
+            FinancialMetric.REVENUE: 900.0,
+            FinancialMetric.EBITDA: 180.0,
+            FinancialMetric.EBIT: 130.0,
+            FinancialMetric.NET_INCOME: 90.0,
+            FinancialMetric.EPS: 1.8,
+            FinancialMetric.FREE_CASH_FLOW: 100.0,
+            FinancialMetric.SHARES_OUTSTANDING: 51.0,
+            FinancialMetric.EQUITY: 450.0,
+        }
+
+        incomplete_2024 = {
+            FinancialMetric.REVENUE: 1_000.0,
+        }
+
+        complete_2025 = {
+            FinancialMetric.REVENUE: 1_100.0,
+            FinancialMetric.EBITDA: 230.0,
+            FinancialMetric.EBIT: 165.0,
+            FinancialMetric.NET_INCOME: 120.0,
+            FinancialMetric.EPS: 2.5,
+            FinancialMetric.FREE_CASH_FLOW: 150.0,
+            FinancialMetric.SHARES_OUTSTANDING: 48.0,
+            FinancialMetric.EQUITY: 550.0,
+        }
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2023-12-31",
+            publication_date="2024-02-20",
+            values=complete_2023,
+        )
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2024-12-31",
+            publication_date="2025-02-20",
+            values=incomplete_2024,
+        )
+
+        insert_growth_period(
+            connection=connection,
+            company_id=company_id,
+            period_end="2025-12-31",
+            publication_date="2026-02-20",
+            values=complete_2025,
+        )
+
+        snapshot = build_fundamental_growth_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 1),
+        )
+
+    assert snapshot is not None
+    assert snapshot.previous_period_end == date(
+        2023,
+        12,
+        31,
+    )
