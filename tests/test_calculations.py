@@ -1,24 +1,23 @@
 import pytest
 
-
 from src.calculations import (
     calculate_free_cash_flow,
     calculate_net_debt,
+    compound_annual_growth_rate,
     dividend_yield,
     earnings_yield,
     expected_annual_return,
     free_cash_flow_yield,
     growth_rate,
+    margin,
     net_debt_to_ebitda,
     price_to_earnings,
     required_eps_growth,
     required_purchase_pe,
     required_purchase_price,
-    growth_rate,
-    margin,
-    net_debt_to_ebitda,
     return_on_equity,
 )
+
 
 def test_price_to_earnings():
     assert price_to_earnings(
@@ -374,3 +373,45 @@ def test_return_on_equity_rejects_negative_average_equity():
     )
 
     assert result is None
+
+def test_compound_annual_growth_rate():
+    result = compound_annual_growth_rate(
+        current_value=121.0,
+        previous_value=100.0,
+        years=2.0,
+    )
+
+    assert result == pytest.approx(0.10)
+
+
+def test_compound_annual_growth_rate_rejects_zero_base():
+    assert (
+        compound_annual_growth_rate(
+            current_value=100.0,
+            previous_value=0.0,
+            years=2.0,
+        )
+        is None
+    )
+
+
+def test_compound_annual_growth_rate_rejects_negative_values():
+    assert (
+        compound_annual_growth_rate(
+            current_value=100.0,
+            previous_value=-100.0,
+            years=2.0,
+        )
+        is None
+    )
+
+
+def test_compound_annual_growth_rate_rejects_invalid_years():
+    assert (
+        compound_annual_growth_rate(
+            current_value=121.0,
+            previous_value=100.0,
+            years=0.0,
+        )
+        is None
+    )

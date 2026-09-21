@@ -4,6 +4,7 @@ import sqlite3
 
 from src.calculations import (
     calculate_net_debt,
+    compound_annual_growth_rate,
     growth_rate,
     margin,
     net_debt_to_ebitda,
@@ -52,6 +53,9 @@ class FundamentalGrowthSnapshot:
     previous_period_end: date
     current_publication_date: date
 
+    years_between_periods: float
+    is_annual_comparison: bool
+
     revenue_growth: float | None
     ebitda_growth: float | None
     ebit_growth: float | None
@@ -59,6 +63,14 @@ class FundamentalGrowthSnapshot:
     eps_growth: float | None
     free_cash_flow_growth: float | None
     shares_growth: float | None
+
+    revenue_cagr: float | None
+    ebitda_cagr: float | None
+    ebit_cagr: float | None
+    net_income_cagr: float | None
+    eps_cagr: float | None
+    free_cash_flow_cagr: float | None
+    shares_cagr: float | None
 
     return_on_equity: float | None
 
@@ -289,6 +301,35 @@ def build_fundamental_growth_snapshot(
     current = latest_records
     previous = previous_records
 
+    days_between_periods = (
+        current_period_end - previous_period_end
+    ).days
+
+    years_between_periods = (
+        days_between_periods / 365.2425
+    )
+
+    is_annual_comparison = (
+        0.90 <= years_between_periods <= 1.10
+    )
+
+    def period_growth(
+        metric: FinancialMetric,
+    ) -> float | None:
+        return growth_rate(
+            current_value=current[metric].value,
+            previous_value=previous[metric].value,
+        )
+
+    def period_cagr(
+        metric: FinancialMetric,
+    ) -> float | None:
+        return compound_annual_growth_rate(
+            current_value=current[metric].value,
+            previous_value=previous[metric].value,
+            years=years_between_periods,
+        )
+
     return FundamentalGrowthSnapshot(
         company_id=company_id,
         as_of_date=as_of_date,
@@ -297,71 +338,63 @@ def build_fundamental_growth_snapshot(
         current_publication_date=max(
             current_publication_dates
         ),
-        revenue_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.REVENUE
-            ].value,
-            previous_value=previous[
-                FinancialMetric.REVENUE
-            ].value,
+        years_between_periods=years_between_periods,
+        is_annual_comparison=is_annual_comparison,
+        revenue_growth=period_growth(
+            FinancialMetric.REVENUE
         ),
-        ebitda_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.EBITDA
-            ].value,
-            previous_value=previous[
-                FinancialMetric.EBITDA
-            ].value,
+        ebitda_growth=period_growth(
+            FinancialMetric.EBITDA
         ),
-        ebit_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.EBIT
-            ].value,
-            previous_value=previous[
-                FinancialMetric.EBIT
-            ].value,
+        ebit_growth=period_growth(
+            FinancialMetric.EBIT
         ),
-        net_income_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.NET_INCOME
-            ].value,
-            previous_value=previous[
-                FinancialMetric.NET_INCOME
-            ].value,
+        net_income_growth=period_growth(
+            FinancialMetric.NET_INCOME
         ),
-        eps_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.EPS
-            ].value,
-            previous_value=previous[
-                FinancialMetric.EPS
-            ].value,
+        eps_growth=period_growth(
+            FinancialMetric.EPS
         ),
-        free_cash_flow_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.FREE_CASH_FLOW
-            ].value,
-            previous_value=previous[
-                FinancialMetric.FREE_CASH_FLOW
-            ].value,
+        free_cash_flow_growth=period_growth(
+            FinancialMetric.FREE_CASH_FLOW
         ),
-        shares_growth=growth_rate(
-            current_value=current[
-                FinancialMetric.SHARES_OUTSTANDING
-            ].value,
-            previous_value=previous[
-                FinancialMetric.SHARES_OUTSTANDING
-            ].value,
+        shares_growth=period_growth(
+            FinancialMetric.SHARES_OUTSTANDING
         ),
-        return_on_equity=return_on_equity(
-            net_income=current[
-                FinancialMetric.NET_INCOME
-            ].value,
-            beginning_equity=previous[
-                FinancialMetric.EQUITY
-            ].value,
-            ending_equity=current[
-                FinancialMetric.EQUITY
-            ].value,
+        revenue_cagr=period_cagr(
+            FinancialMetric.REVENUE
+        ),
+        ebitda_cagr=period_cagr(
+            FinancialMetric.EBITDA
+        ),
+        ebit_cagr=period_cagr(
+            FinancialMetric.EBIT
+        ),
+        net_income_cagr=period_cagr(
+            FinancialMetric.NET_INCOME
+        ),
+        eps_cagr=period_cagr(
+            FinancialMetric.EPS
+        ),
+        free_cash_flow_cagr=period_cagr(
+            FinancialMetric.FREE_CASH_FLOW
+        ),
+        shares_cagr=period_cagr(
+            FinancialMetric.SHARES_OUTSTANDING
+        ),
+        return_on_equity=(
+            return_on_equity(
+                net_income=current[
+                    FinancialMetric.NET_INCOME
+                ].value,
+                beginning_equity=previous[
+                    FinancialMetric.EQUITY
+                ].value,
+                ending_equity=current[
+                    FinancialMetric.EQUITY
+                ].value,
+            )
+            if is_annual_comparison
+            else None
         ),
     )

@@ -471,6 +471,20 @@ def test_build_fundamental_growth_snapshot(
     assert snapshot.return_on_equity == pytest.approx(
         120.0 / 525.0
     )
+    assert snapshot.is_annual_comparison is True
+    assert snapshot.years_between_periods == pytest.approx(
+        1.0,
+        abs=0.01,
+    )
+
+    assert snapshot.revenue_cagr == pytest.approx(
+        0.10,
+        abs=0.001,
+    )
+    assert snapshot.eps_cagr == pytest.approx(
+        0.25,
+        abs=0.001,
+    )
 
 
 def test_growth_snapshot_respects_point_in_time(
@@ -669,3 +683,20 @@ def test_growth_snapshot_skips_incomplete_previous_period(
         12,
         31,
     )
+        
+    assert snapshot.is_annual_comparison is False
+
+    assert snapshot.years_between_periods == pytest.approx(
+        2.0,
+        abs=0.01,
+    )
+
+    assert snapshot.revenue_growth == pytest.approx(
+        1_100.0 / 900.0 - 1
+    )
+
+    assert snapshot.revenue_cagr == pytest.approx(
+        (1_100.0 / 900.0) ** 0.5 - 1,
+        abs=0.001,
+    )
+    

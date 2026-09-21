@@ -203,3 +203,18 @@ def return_on_equity(
         return None
 
     return net_income / average_equity
+
+def compound_annual_growth_rate(
+    current_value: float,
+    previous_value: float,
+    years: float,
+) -> float | None:
+    if years <= 0:
+        return None
+
+    if current_value <= 0 or previous_value <= 0:
+        return None
+
+    return (
+        current_value / previous_value
+    ) ** (1 / years) - 1

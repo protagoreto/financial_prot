@@ -34,6 +34,12 @@ def format_percentage(
     return f"{value:.2%}"
 
 
+def format_boolean(
+    value: bool,
+) -> str:
+    return "YES" if value else "NO"
+
+
 def main() -> None:
     dates = (
         date(2026, 3, 10),
@@ -69,49 +75,95 @@ def main() -> None:
                 continue
 
             print(
-                "Current period:  "
+                "Current period:     "
                 f"{snapshot.current_period_end}"
             )
             print(
-                "Previous period: "
+                "Previous period:    "
                 f"{snapshot.previous_period_end}"
             )
             print(
-                "Publication:     "
+                "Publication:        "
                 f"{snapshot.current_publication_date}"
+            )
+            print(
+                "Years between:      "
+                f"{snapshot.years_between_periods:.4f}"
+            )
+            print(
+                "Annual comparison:  "
+                f"{format_boolean(snapshot.is_annual_comparison)}"
             )
 
             print()
+            print("TOTAL PERIOD GROWTH")
+            print("-" * 72)
             print(
-                "Revenue growth:  "
+                "Revenue growth:     "
                 f"{format_percentage(snapshot.revenue_growth)}"
             )
             print(
-                "EBITDA growth:   "
+                "EBITDA growth:      "
                 f"{format_percentage(snapshot.ebitda_growth)}"
             )
             print(
-                "EBIT growth:     "
+                "EBIT growth:        "
                 f"{format_percentage(snapshot.ebit_growth)}"
             )
             print(
-                "Net income:      "
+                "Net income growth:  "
                 f"{format_percentage(snapshot.net_income_growth)}"
             )
             print(
-                "EPS growth:      "
+                "EPS growth:         "
                 f"{format_percentage(snapshot.eps_growth)}"
             )
             print(
-                "FCF growth:      "
+                "FCF growth:         "
                 f"{format_percentage(snapshot.free_cash_flow_growth)}"
             )
             print(
-                "Shares growth:   "
+                "Shares growth:      "
                 f"{format_percentage(snapshot.shares_growth)}"
             )
+
+            print()
+            print("ANNUALIZED GROWTH (CAGR)")
+            print("-" * 72)
             print(
-                "ROE:             "
+                "Revenue CAGR:       "
+                f"{format_percentage(snapshot.revenue_cagr)}"
+            )
+            print(
+                "EBITDA CAGR:        "
+                f"{format_percentage(snapshot.ebitda_cagr)}"
+            )
+            print(
+                "EBIT CAGR:          "
+                f"{format_percentage(snapshot.ebit_cagr)}"
+            )
+            print(
+                "Net income CAGR:    "
+                f"{format_percentage(snapshot.net_income_cagr)}"
+            )
+            print(
+                "EPS CAGR:           "
+                f"{format_percentage(snapshot.eps_cagr)}"
+            )
+            print(
+                "FCF CAGR:           "
+                f"{format_percentage(snapshot.free_cash_flow_cagr)}"
+            )
+            print(
+                "Shares CAGR:        "
+                f"{format_percentage(snapshot.shares_cagr)}"
+            )
+
+            print()
+            print("QUALITY")
+            print("-" * 72)
+            print(
+                "ROE:                "
                 f"{format_percentage(snapshot.return_on_equity)}"
             )
 
