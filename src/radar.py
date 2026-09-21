@@ -185,3 +185,146 @@ def _build_radar_entry(
         value_trap_reasons=value_trap_reasons,
         scenarios=radar_scenarios,
     )
+
+
+@dataclass(frozen=True)
+class RadarFilter:
+    availability: AnalysisAvailability | None = None
+    quality_level: AssessmentLevel | None = None
+    risk_level: RiskLevel | None = None
+    value_trap_warning: bool | None = None
+
+    scenario_name: str | None = None
+    condition: ValueCondition | None = None
+    min_expected_return: float | None = None
+    min_price_margin: float | None = None
+
+    def is_valid(self) -> bool:
+        has_scenario_criterion = any(
+            criterion is not None
+            for criterion in (
+                self.condition,
+                self.min_expected_return,
+                self.min_price_margin,
+            )
+        )
+
+        if has_scenario_criterion and self.scenario_name is None:
+            return False
+
+        if (
+            self.scenario_name is not None
+            and not self.scenario_name.strip()
+        ):
+            return False
+
+        return True
+
+
+def filter_radar_entries(
+    snapshot: RadarSnapshot,
+    radar_filter: RadarFilter,
+) -> tuple[RadarEntry, ...]:
+    if not radar_filter.is_valid():
+        raise ValueError(
+            "Scenario criteria require a non-empty scenario_name."
+        )
+
+    return tuple(
+        entry
+        for entry in snapshot.entries
+        if _matches_radar_filter(
+            entry=entry,
+            radar_filter=radar_filter,
+        )
+    )
+
+
+def _matches_radar_filter(
+    entry: RadarEntry,
+    radar_filter: RadarFilter,
+) -> bool:
+    if (
+        radar_filter.availability is not None
+        and entry.availability != radar_filter.availability
+    ):
+        return False
+
+    if (
+        radar_filter.quality_level is not None
+        and entry.quality_level != radar_filter.quality_level
+    ):
+        return False
+
+    if (
+        radar_filter.risk_level is not None
+        and entry.risk_level != radar_filter.risk_level
+    ):
+        return False
+
+    if (
+        radar_filter.value_trap_warning is not None
+        and entry.value_trap_warning
+        is not radar_filter.value_trap_warning
+    ):
+        return False
+
+    if radar_filter.scenario_name is None:
+        return True
+
+    scenario = _get_radar_scenario(
+        entry=entry,
+        scenario_name=radar_filter.scenario_name,
+    )
+
+    if scenario is None:
+        return False
+
+    if (
+        radar_filter.condition is not None
+        and scenario.condition != radar_filter.condition
+    ):
+        return False
+
+    if radar_filter.min_expected_return is not None:
+        if scenario.expected_return is None:
+            return False
+
+        if (
+            scenario.expected_return
+            < radar_filter.min_expected_return
+        ):
+            return False
+
+    if radar_filter.min_price_margin is not None:
+        if scenario.price_margin is None:
+            return False
+
+        if (
+            scenario.price_margin
+            < radar_filter.min_price_margin
+        ):
+            return False
+
+    return True
+
+
+def _get_radar_scenario(
+    entry: RadarEntry,
+    scenario_name: str,
+) -> RadarScenario | None:
+    matching = tuple(
+        scenario
+        for scenario in entry.scenarios
+        if scenario.name == scenario_name
+    )
+
+    if len(matching) > 1:
+        raise ValueError(
+            "Radar entry contains duplicate scenario names."
+        )
+
+    if not matching:
+        return None
+
+    return matching[0]
