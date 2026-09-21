@@ -819,3 +819,233 @@ def test_as_of_date_excludes_future_cash_flow(
         )
 
     assert snapshot.currency_summaries[0].cash == pytest.approx(1000)
+
+def test_currency_summary_value_identity(
+    connection,
+):
+    company_id = insert_company(
+        connection,
+        ticker="TEST",
+        exchange="BME",
+        currency="EUR",
+    )
+
+    insert_portfolio_transaction(
+        connection,
+        PortfolioTransaction(
+            external_id="cash-identity",
+            transaction_date="2026-01-01",
+            transaction_type="cash",
+            currency="EUR",
+            amount=1000.0,
+        ),
+    )
+
+    insert_portfolio_transaction(
+        connection,
+        PortfolioTransaction(
+            external_id="buy-identity",
+            transaction_date="2026-01-02",
+            transaction_type="buy",
+            currency="EUR",
+            company_id=company_id,
+            quantity=10.0,
+            price=50.0,
+        ),
+    )
+
+    insert_price_record(
+        connection,
+        PriceRecord(
+            company_id=company_id,
+            price_date="2026-02-01",
+            close=60.0,
+            currency="EUR",
+            source_id=1,
+        ),
+    )
+
+    snapshot = build_valued_portfolio_snapshot(
+        connection=connection,
+        as_of_date=date(2026, 2, 15),
+    )
+
+    summary = snapshot.currency_summaries[0]
+
+    assert summary.total_value == pytest.approx(
+        summary.positions_market_value
+        + summary.cash
+    )
+
+
+def test_position_weights_use_total_value_including_cash(
+    connection,
+):
+    company_id = insert_company(
+        connection,
+        ticker="WEIGHT",
+        exchange="BME",
+        currency="EUR",
+    )
+
+    insert_portfolio_transaction(
+        connection,
+        PortfolioTransaction(
+            external_id="cash-weight",
+            transaction_date="2026-01-01",
+            transaction_type="cash",
+            currency="EUR",
+            amount=1000.0,
+        ),
+    )
+
+    insert_portfolio_transaction(
+        connection,
+        PortfolioTransaction(
+            external_id="buy-weight",
+            transaction_date="2026-01-02",
+            transaction_type="buy",
+            currency="EUR",
+            company_id=company_id,
+            quantity=10.0,
+            price=50.0,
+        ),
+    )
+
+    insert_price_record(
+        connection,
+        PriceRecord(
+            company_id=company_id,
+            price_date="2026-02-01",
+            close=60.0,
+            currency="EUR",
+            source_id=1,
+        ),
+    )
+
+    snapshot = build_valued_portfolio_snapshot(
+        connection=connection,
+        as_of_date=date(2026, 2, 15),
+    )
+
+    position = snapshot.positions[0]
+    summary = snapshot.currency_summaries[0]
+
+    assert position.weight == pytest.approx(
+        position.market_value
+        / summary.total_value
+    )
+
+
+def test_currency_summary_value_identity(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(
+            connection,
+            ticker="IDENTITY",
+        )
+
+        add_transaction(
+            connection,
+            external_id="cash-identity",
+            transaction_date="2026-01-01",
+            transaction_type="cash",
+            amount=1000.0,
+        )
+
+        add_transaction(
+            connection,
+            external_id="buy-identity",
+            transaction_date="2026-01-02",
+            transaction_type="buy",
+            company_id=company_id,
+            quantity=10.0,
+            price=50.0,
+        )
+
+        add_price(
+            connection,
+            company_id=company_id,
+            price_date="2026-02-01",
+            close=60.0,
+        )
+
+        snapshot = build_valued_portfolio_snapshot(
+            connection=connection,
+            as_of_date=date(2026, 2, 15),
+        )
+
+    summary = snapshot.currency_summaries[0]
+
+    assert summary.positions_market_value == pytest.approx(
+        600.0
+    )
+    assert summary.cash == pytest.approx(500.0)
+    assert summary.total_value == pytest.approx(1100.0)
+
+    assert summary.total_value == pytest.approx(
+        summary.positions_market_value
+        + summary.cash
+    )
+
+
+def test_position_weights_use_total_value_including_cash(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(
+            connection,
+            ticker="WEIGHT",
+        )
+
+        add_transaction(
+            connection,
+            external_id="cash-weight",
+            transaction_date="2026-01-01",
+            transaction_type="cash",
+            amount=1000.0,
+        )
+
+        add_transaction(
+            connection,
+            external_id="buy-weight",
+            transaction_date="2026-01-02",
+            transaction_type="buy",
+            company_id=company_id,
+            quantity=10.0,
+            price=50.0,
+        )
+
+        add_price(
+            connection,
+            company_id=company_id,
+            price_date="2026-02-01",
+            close=60.0,
+        )
+
+        snapshot = build_valued_portfolio_snapshot(
+            connection=connection,
+            as_of_date=date(2026, 2, 15),
+        )
+
+    position = snapshot.positions[0]
+    summary = snapshot.currency_summaries[0]
+
+    assert position.market_value == pytest.approx(600.0)
+    assert summary.total_value == pytest.approx(1100.0)
+
+    assert position.weight == pytest.approx(
+        600.0 / 1100.0
+    )
+
+    assert position.weight == pytest.approx(
+        position.market_value
+        / summary.total_value
+    )
