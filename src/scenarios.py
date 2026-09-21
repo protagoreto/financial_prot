@@ -32,11 +32,26 @@ class ScenarioResult:
     required_eps_growth: float | None
     required_pe: float | None
     required_price: float | None
+    price_margin: float | None
+
+
+def calculate_price_margin(
+    current_price: float,
+    required_price: float | None,
+) -> float | None:
+    if current_price <= 0:
+        return None
+
+    if required_price is None or required_price <= 0:
+        return None
+
+    return required_price / current_price - 1
 
 
 def evaluate_scenario(
     scenario: ValuationScenario,
     current_pe: float,
+    current_price: float,
     forward_eps: float,
     target_return: float,
     years: int = 5,
@@ -74,6 +89,11 @@ def evaluate_scenario(
         years=years,
     )
 
+    price_margin = calculate_price_margin(
+        current_price=current_price,
+        required_price=required_price,
+    )
+
     return ScenarioResult(
         name=scenario.name,
         eps_growth=scenario.eps_growth,
@@ -83,12 +103,14 @@ def evaluate_scenario(
         required_eps_growth=required_growth,
         required_pe=required_pe,
         required_price=required_price,
+        price_margin=price_margin,
     )
 
 
 def evaluate_scenarios(
     scenarios: tuple[ValuationScenario, ...],
     current_pe: float,
+    current_price: float,
     forward_eps: float,
     target_return: float,
     years: int = 5,
@@ -97,6 +119,7 @@ def evaluate_scenarios(
         evaluate_scenario(
             scenario=scenario,
             current_pe=current_pe,
+            current_price=current_price,
             forward_eps=forward_eps,
             target_return=target_return,
             years=years,

@@ -118,6 +118,19 @@ def test_build_complete_valuation_analysis(
         "Optimistic",
     ]
 
+    for result in analysis.scenarios:
+        assert result.expected_return is not None
+        assert result.required_eps_growth is not None
+        assert result.required_pe is not None
+        assert result.required_price is not None
+        assert result.price_margin is not None
+
+        assert result.price_margin == pytest.approx(
+            result.required_price
+            / analysis.snapshot.price
+            - 1
+        )
+
 
 def test_analysis_returns_none_without_estimate(
     tmp_path: Path,

@@ -49,6 +49,7 @@ def build_valuation_analysis(
     results = evaluate_scenarios(
         scenarios=scenarios,
         current_pe=snapshot.forward_pe,
+        current_price=snapshot.price,
         forward_eps=snapshot.forward_eps,
         target_return=target_return,
         years=years,
