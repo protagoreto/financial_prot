@@ -14,6 +14,7 @@ from src.assessment import (
 )
 from src.scenarios import ValuationScenario
 from src.signals import build_fundamental_signals
+from src.value import ValueAssessment, assess_value
 
 
 class AnalysisAvailability(str, Enum):
@@ -31,6 +32,7 @@ class InvestmentAnalysis:
     availability: AnalysisAvailability
 
     valuation: ValuationAnalysis | None
+    value: ValueAssessment | None
     fundamentals: FundamentalAssessment | None
 
 
@@ -53,6 +55,12 @@ def build_investment_analysis(
         scenarios=scenarios,
         target_return=target_return,
         years=years,
+    )
+
+    value = (
+        assess_value(valuation)
+        if valuation is not None
+        else None
     )
 
     signals = build_fundamental_signals(
@@ -80,6 +88,7 @@ def build_investment_analysis(
         as_of_date=as_of_date,
         availability=availability,
         valuation=valuation,
+        value=value,
         fundamentals=fundamentals,
     )
 

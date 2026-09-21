@@ -397,3 +397,76 @@ def test_unpublished_fundamentals_do_not_leak(
     )
 
     assert analysis.fundamentals is None
+
+def test_complete_analysis_contains_value_assessment(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_fundamentals(
+            connection,
+            company_id,
+        )
+        insert_valuation_data(
+            connection,
+            company_id,
+        )
+
+        analysis = build_investment_analysis(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 1),
+            fiscal_period_end=date(
+                2026,
+                12,
+                31,
+            ),
+            scenarios=SCENARIOS,
+        )
+
+    assert analysis.value is not None
+    assert len(analysis.value.scenarios) == 1
+
+    assert (
+        analysis.value.scenarios[0].name
+        == "Base"
+    )
+
+
+def test_missing_valuation_means_unknown_value(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_fundamentals(
+            connection,
+            company_id,
+        )
+
+        analysis = build_investment_analysis(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=date(2026, 3, 1),
+            fiscal_period_end=date(
+                2026,
+                12,
+                31,
+            ),
+            scenarios=SCENARIOS,
+        )
+
+    assert (
+        analysis.availability
+        == AnalysisAvailability.FUNDAMENTALS_ONLY
+    )
+    assert analysis.valuation is None
+    assert analysis.value is None
+    assert analysis.fundamentals is not None
