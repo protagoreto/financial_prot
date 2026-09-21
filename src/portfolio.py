@@ -265,3 +265,316 @@ def _build_position(
         total_sell_fees=state.total_sell_fees,
         total_sell_taxes=state.total_sell_taxes,
     )
+
+
+@dataclass(frozen=True)
+class ValuedPortfolioPosition:
+    company_id: int
+    currency: str
+
+    quantity: float
+    average_cost: float
+    cost_basis: float
+    realized_profit_loss: float
+
+    price: float
+    price_date: date
+
+    market_value: float
+    unrealized_profit_loss: float
+    unrealized_return: float | None
+
+    weight: float | None
+
+
+@dataclass(frozen=True)
+class PortfolioCurrencySummary:
+    currency: str
+    positions_market_value: float
+    cash: float
+    total_value: float
+
+
+@dataclass(frozen=True)
+class ValuedPortfolioSnapshot:
+    as_of_date: date
+    positions: tuple[ValuedPortfolioPosition, ...]
+    currency_summaries: tuple[PortfolioCurrencySummary, ...]
+
+
+def build_valued_portfolio_snapshot(
+    connection: sqlite3.Connection,
+    as_of_date: date,
+) -> ValuedPortfolioSnapshot:
+    from src.repository import get_price_on_or_before
+
+    portfolio_snapshot = build_portfolio_snapshot(
+        connection=connection,
+        as_of_date=as_of_date,
+    )
+
+    transactions = get_portfolio_transactions(
+        connection=connection,
+        as_of_date=as_of_date,
+    )
+
+    cash_by_currency = _calculate_cash_by_currency(
+        transactions=transactions,
+    )
+
+    position_data: list[dict] = []
+    market_value_by_currency: dict[str, float] = {}
+
+    for position in portfolio_snapshot.positions:
+        if position.quantity <= _QUANTITY_TOLERANCE:
+            continue
+
+        price_record = get_price_on_or_before(
+            connection=connection,
+            company_id=position.company_id,
+            as_of_date=as_of_date,
+        )
+
+        if price_record is None:
+            raise PortfolioCalculationError(
+                "missing price on or before "
+                f"{as_of_date.isoformat()} "
+                f"for company_id={position.company_id}"
+            )
+
+        price_currency = (
+            price_record.currency.upper()
+            if price_record.currency is not None
+            else None
+        )
+
+        if price_currency is None:
+            raise PortfolioCalculationError(
+                "price currency is required "
+                f"for company_id={position.company_id}"
+            )
+
+        if price_currency != position.currency:
+            raise PortfolioCalculationError(
+                "position currency and price currency "
+                "must match"
+            )
+
+        market_value = (
+            position.quantity
+            * price_record.close
+        )
+
+        unrealized_profit_loss = (
+            market_value
+            - position.cost_basis
+        )
+
+        if position.cost_basis > 0:
+            unrealized_return = (
+                unrealized_profit_loss
+                / position.cost_basis
+            )
+        else:
+            unrealized_return = None
+
+        market_value_by_currency[position.currency] = (
+            market_value_by_currency.get(
+                position.currency,
+                0.0,
+            )
+            + market_value
+        )
+
+        position_data.append(
+            {
+                "position": position,
+                "price": price_record.close,
+                "price_date": price_record.price_date,
+                "market_value": market_value,
+                "unrealized_profit_loss": (
+                    unrealized_profit_loss
+                ),
+                "unrealized_return": unrealized_return,
+            }
+        )
+
+    currencies = (
+        set(market_value_by_currency)
+        | set(cash_by_currency)
+    )
+
+    total_value_by_currency = {
+        currency: (
+            market_value_by_currency.get(
+                currency,
+                0.0,
+            )
+            + cash_by_currency.get(
+                currency,
+                0.0,
+            )
+        )
+        for currency in currencies
+    }
+
+    valued_positions = tuple(
+        ValuedPortfolioPosition(
+            company_id=item["position"].company_id,
+            currency=item["position"].currency,
+            quantity=item["position"].quantity,
+            average_cost=item["position"].average_cost,
+            cost_basis=item["position"].cost_basis,
+            realized_profit_loss=(
+                item["position"].realized_profit_loss
+            ),
+            price=item["price"],
+            price_date=item["price_date"],
+            market_value=item["market_value"],
+            unrealized_profit_loss=(
+                item["unrealized_profit_loss"]
+            ),
+            unrealized_return=item["unrealized_return"],
+            weight=_calculate_weight(
+                market_value=item["market_value"],
+                total_value=total_value_by_currency[
+                    item["position"].currency
+                ],
+            ),
+        )
+        for item in position_data
+    )
+
+    currency_summaries = tuple(
+        PortfolioCurrencySummary(
+            currency=currency,
+            positions_market_value=(
+                market_value_by_currency.get(
+                    currency,
+                    0.0,
+                )
+            ),
+            cash=cash_by_currency.get(
+                currency,
+                0.0,
+            ),
+            total_value=total_value_by_currency[
+                currency
+            ],
+        )
+        for currency in sorted(currencies)
+    )
+
+    return ValuedPortfolioSnapshot(
+        as_of_date=as_of_date,
+        positions=valued_positions,
+        currency_summaries=currency_summaries,
+    )
+
+
+def _calculate_cash_by_currency(
+    transactions: tuple[PortfolioTransaction, ...],
+) -> dict[str, float]:
+    cash_by_currency: dict[str, float] = {}
+
+    for transaction in transactions:
+        currency = transaction.currency.upper()
+
+        cash_effect = _transaction_cash_effect(
+            transaction=transaction,
+        )
+
+        cash_by_currency[currency] = (
+            cash_by_currency.get(currency, 0.0)
+            + cash_effect
+        )
+
+    return cash_by_currency
+
+
+def _transaction_cash_effect(
+    transaction: PortfolioTransaction,
+) -> float:
+    transaction_type = transaction.transaction_type
+
+    if transaction_type == PortfolioTransactionType.BUY:
+        if (
+            transaction.quantity is None
+            or transaction.price is None
+        ):
+            raise PortfolioCalculationError(
+                "buy transaction is incomplete"
+            )
+
+        return -(
+            transaction.quantity
+            * transaction.price
+            + transaction.fee
+            + transaction.tax
+        )
+
+    if transaction_type == PortfolioTransactionType.SELL:
+        if (
+            transaction.quantity is None
+            or transaction.price is None
+        ):
+            raise PortfolioCalculationError(
+                "sell transaction is incomplete"
+            )
+
+        return (
+            transaction.quantity
+            * transaction.price
+            - transaction.fee
+            - transaction.tax
+        )
+
+    if transaction_type == PortfolioTransactionType.DIVIDEND:
+        if transaction.amount is None:
+            raise PortfolioCalculationError(
+                "dividend transaction is incomplete"
+            )
+
+        return (
+            transaction.amount
+            - transaction.fee
+            - transaction.tax
+        )
+
+    if transaction_type == PortfolioTransactionType.FEE:
+        if transaction.amount is None:
+            raise PortfolioCalculationError(
+                "fee transaction is incomplete"
+            )
+
+        return -transaction.amount
+
+    if transaction_type == PortfolioTransactionType.TAX:
+        if transaction.amount is None:
+            raise PortfolioCalculationError(
+                "tax transaction is incomplete"
+            )
+
+        return -transaction.amount
+
+    if transaction_type == PortfolioTransactionType.CASH:
+        if transaction.amount is None:
+            raise PortfolioCalculationError(
+                "cash transaction is incomplete"
+            )
+
+        return transaction.amount
+
+    raise PortfolioCalculationError(
+        f"unsupported transaction type: {transaction_type}"
+    )
+
+
+def _calculate_weight(
+    market_value: float,
+    total_value: float,
+) -> float | None:
+    if total_value <= 0:
+        return None
+
+    return market_value / total_value
