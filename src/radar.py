@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 import sqlite3
 
 from src.assessment import (
@@ -328,3 +329,105 @@ def _get_radar_scenario(
         return None
 
     return matching[0]
+
+
+class RadarSortMetric(str, Enum):
+    EXPECTED_RETURN = "expected_return"
+    PRICE_MARGIN = "price_margin"
+    REQUIRED_PRICE = "required_price"
+
+
+class RadarSortDirection(str, Enum):
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
+@dataclass(frozen=True)
+class RadarSort:
+    metric: RadarSortMetric
+    scenario_name: str
+    direction: RadarSortDirection = (
+        RadarSortDirection.DESCENDING
+    )
+
+    def is_valid(self) -> bool:
+        return bool(self.scenario_name.strip())
+
+
+def sort_radar_entries(
+    entries: tuple[RadarEntry, ...],
+    radar_sort: RadarSort,
+) -> tuple[RadarEntry, ...]:
+    if not radar_sort.is_valid():
+        raise ValueError(
+            "Radar sorting requires a non-empty scenario_name."
+        )
+
+    available: list[tuple[RadarEntry, float]] = []
+    unavailable: list[RadarEntry] = []
+
+    for entry in entries:
+        scenario = _get_radar_scenario(
+            entry=entry,
+            scenario_name=radar_sort.scenario_name,
+        )
+
+        if scenario is None:
+            unavailable.append(entry)
+            continue
+
+        value = _get_radar_sort_value(
+            scenario=scenario,
+            metric=radar_sort.metric,
+        )
+
+        if value is None:
+            unavailable.append(entry)
+            continue
+
+        available.append((entry, value))
+
+    if radar_sort.direction == RadarSortDirection.DESCENDING:
+        ordered_available = sorted(
+            available,
+            key=lambda item: (
+                -item[1],
+                item[0].company_id,
+            ),
+        )
+    else:
+        ordered_available = sorted(
+            available,
+            key=lambda item: (
+                item[1],
+                item[0].company_id,
+            ),
+        )
+
+    ordered_unavailable = sorted(
+        unavailable,
+        key=lambda entry: entry.company_id,
+    )
+
+    return tuple(
+        entry
+        for entry, _ in ordered_available
+    ) + tuple(ordered_unavailable)
+
+
+def _get_radar_sort_value(
+    scenario: RadarScenario,
+    metric: RadarSortMetric,
+) -> float | None:
+    if metric == RadarSortMetric.EXPECTED_RETURN:
+        return scenario.expected_return
+
+    if metric == RadarSortMetric.PRICE_MARGIN:
+        return scenario.price_margin
+
+    if metric == RadarSortMetric.REQUIRED_PRICE:
+        return scenario.required_price
+
+    raise ValueError(
+        f"Unsupported radar sort metric: {metric!r}."
+    )
