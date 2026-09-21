@@ -5,9 +5,11 @@ from datetime import date
 from src.models import (
     EstimateRecord,
     FinancialRecord,
+    PortfolioThesis,
     PortfolioTransaction,
     PriceRecord,
 )
+
 from src.metrics import FinancialMetric, PeriodType
 
 
@@ -656,3 +658,91 @@ def get_company_id_by_ticker_exchange(
         return None
 
     return row["company_id"]
+
+def upsert_portfolio_thesis(
+    connection: sqlite3.Connection,
+    thesis: PortfolioThesis,
+) -> int:
+    connection.execute(
+        """
+        INSERT INTO portfolio_theses (
+            company_id,
+            effective_date,
+            thesis,
+            risks,
+            review_date
+        )
+        VALUES (?, ?, ?, ?, ?)
+
+        ON CONFLICT(company_id, effective_date)
+        DO UPDATE SET
+            thesis = excluded.thesis,
+            risks = excluded.risks,
+            review_date = excluded.review_date
+        """,
+        (
+            thesis.company_id,
+            thesis.effective_date.isoformat(),
+            thesis.thesis,
+            thesis.risks,
+            (
+                thesis.review_date.isoformat()
+                if thesis.review_date
+                else None
+            ),
+        ),
+    )
+
+    row = connection.execute(
+        """
+        SELECT thesis_id
+        FROM portfolio_theses
+        WHERE company_id = ?
+        AND effective_date = ?
+        """,
+        (
+            thesis.company_id,
+            thesis.effective_date.isoformat(),
+        ),
+    ).fetchone()
+
+    connection.commit()
+
+    return row["thesis_id"]
+
+
+def get_portfolio_thesis_on_or_before(
+    connection: sqlite3.Connection,
+    company_id: int,
+    as_of_date: date,
+) -> PortfolioThesis | None:
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            effective_date,
+            thesis,
+            risks,
+            review_date
+        FROM portfolio_theses
+        WHERE company_id = ?
+        AND effective_date <= ?
+        ORDER BY effective_date DESC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return PortfolioThesis(
+        company_id=row["company_id"],
+        effective_date=row["effective_date"],
+        thesis=row["thesis"],
+        risks=row["risks"],
+        review_date=row["review_date"],
+    )

@@ -49,7 +49,7 @@ def test_schema_version(tmp_path: Path):
             """
         ).fetchone()
 
-    assert row["value"] == "0.4.0"
+    assert row["value"] == "0.5.0"
 
 
 def test_foreign_keys_are_enabled(tmp_path: Path):
@@ -112,7 +112,7 @@ def test_publication_dates_table_exists(tmp_path):
     assert row is not None
 
 
-def test_schema_version_is_0_3_0(tmp_path):
+def test_schema_version_is_0_5_0(tmp_path):
     db_path = tmp_path / "test.sqlite"
 
     initialize_database(db_path)
@@ -127,4 +127,4 @@ def test_schema_version_is_0_3_0(tmp_path):
         ).fetchone()
 
     assert row is not None
-    assert row["value"] == "0.4.0"
+    assert row["value"] == "0.5.0"

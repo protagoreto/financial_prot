@@ -319,3 +319,53 @@ class PortfolioTransaction(BaseModel):
                 )
 
         return self
+
+class PortfolioThesis(BaseModel):
+    company_id: int = Field(gt=0)
+
+    effective_date: date
+
+    thesis: str = Field(
+        min_length=1,
+        max_length=5000,
+    )
+
+    risks: Optional[str] = Field(
+        default=None,
+        max_length=5000,
+    )
+
+    review_date: Optional[date] = None
+
+    @model_validator(mode="after")
+    def validate_portfolio_thesis(
+        self,
+    ) -> "PortfolioThesis":
+        normalized_thesis = self.thesis.strip()
+
+        if not normalized_thesis:
+            raise ValueError(
+                "thesis cannot be empty"
+            )
+
+        self.thesis = normalized_thesis
+
+        if self.risks is not None:
+            normalized_risks = self.risks.strip()
+            self.risks = (
+                normalized_risks
+                if normalized_risks
+                else None
+            )
+
+        if (
+            self.review_date is not None
+            and self.review_date
+            < self.effective_date
+        ):
+            raise ValueError(
+                "review_date cannot be earlier "
+                "than effective_date"
+            )
+
+        return self

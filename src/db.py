@@ -240,6 +240,32 @@ CREATE TABLE IF NOT EXISTS portfolio_transactions (
     CHECK (length(currency) = 3)
 );
 
+CREATE TABLE IF NOT EXISTS portfolio_theses (
+    thesis_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    effective_date TEXT NOT NULL,
+    thesis TEXT NOT NULL,
+    risks TEXT,
+    review_date TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+
+    UNIQUE(company_id, effective_date),
+
+    CHECK(length(trim(thesis)) > 0),
+    CHECK(
+        review_date IS NULL
+        OR review_date >= effective_date
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_theses_company_date
+ON portfolio_theses(
+    company_id,
+    effective_date
+);
+
 
 CREATE INDEX IF NOT EXISTS idx_prices_company_date
 ON prices(company_id, price_date);
@@ -307,7 +333,7 @@ def initialize_database(db_path: Path) -> None:
             """,
             (
                 "schema_version",
-                "0.4.0",
+                "0.5.0",
             ),
         )
 
