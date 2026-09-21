@@ -33,6 +33,20 @@ def test_price_to_earnings_rejects_negative_eps():
     ) is None
 
 
+def test_price_to_earnings_rejects_zero_eps():
+    assert price_to_earnings(
+        price=50.0,
+        eps=0.0,
+    ) is None
+
+
+def test_price_to_earnings_rejects_nonpositive_price():
+    assert price_to_earnings(
+        price=0.0,
+        eps=2.5,
+    ) is None
+
+
 def test_earnings_yield():
     assert earnings_yield(
         price=50.0,
@@ -40,11 +54,46 @@ def test_earnings_yield():
     ) == pytest.approx(0.05)
 
 
+def test_earnings_yield_rejects_nonpositive_eps():
+    assert earnings_yield(
+        price=50.0,
+        eps=0.0,
+    ) is None
+
+
+def test_earnings_yield_rejects_nonpositive_price():
+    assert earnings_yield(
+        price=0.0,
+        eps=2.5,
+    ) is None
+
+
 def test_dividend_yield():
     assert dividend_yield(
         price=50.0,
         dividend_per_share=1.5,
     ) == pytest.approx(0.03)
+
+
+def test_dividend_yield_allows_zero_dividend():
+    assert dividend_yield(
+        price=50.0,
+        dividend_per_share=0.0,
+    ) == pytest.approx(0.0)
+
+
+def test_dividend_yield_rejects_negative_dividend():
+    assert dividend_yield(
+        price=50.0,
+        dividend_per_share=-1.0,
+    ) is None
+
+
+def test_dividend_yield_rejects_nonpositive_price():
+    assert dividend_yield(
+        price=0.0,
+        dividend_per_share=1.0,
+    ) is None
 
 
 def test_free_cash_flow_yield():
@@ -59,6 +108,13 @@ def test_negative_free_cash_flow_is_preserved():
         market_cap=1_000.0,
         free_cash_flow=-80.0,
     ) == pytest.approx(-0.08)
+
+
+def test_free_cash_flow_yield_rejects_nonpositive_market_cap():
+    assert free_cash_flow_yield(
+        market_cap=0.0,
+        free_cash_flow=80.0,
+    ) is None
 
 
 def test_net_debt_to_ebitda():
@@ -80,6 +136,14 @@ def test_net_debt_to_ebitda_rejects_negative_ebitda():
         net_debt=100.0,
         ebitda=-20.0,
     ) is None
+
+
+def test_net_debt_to_ebitda_rejects_zero_ebitda():
+    assert net_debt_to_ebitda(
+        net_debt=100.0,
+        ebitda=0.0,
+    ) is None
+
 
 def test_expected_return_with_stable_multiple():
     result = expected_annual_return(
@@ -114,6 +178,56 @@ def test_expected_return_includes_multiple_compression():
     assert result == pytest.approx(expected)
 
 
+def test_expected_return_rejects_invalid_years():
+    assert expected_annual_return(
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        current_pe=15.0,
+        terminal_pe=15.0,
+        years=0,
+    ) is None
+
+
+def test_expected_return_rejects_nonpositive_current_pe():
+    assert expected_annual_return(
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        current_pe=0.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_expected_return_rejects_nonpositive_terminal_pe():
+    assert expected_annual_return(
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        current_pe=15.0,
+        terminal_pe=0.0,
+        years=5,
+    ) is None
+
+
+def test_expected_return_rejects_total_eps_loss():
+    assert expected_annual_return(
+        eps_growth=-1.0,
+        dividend_yield=0.02,
+        current_pe=15.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_expected_return_rejects_invalid_dividend_factor():
+    assert expected_annual_return(
+        eps_growth=0.08,
+        dividend_yield=-1.0,
+        current_pe=15.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
 def test_required_eps_growth_reaches_target_return():
     growth = required_eps_growth(
         target_return=0.10,
@@ -122,6 +236,8 @@ def test_required_eps_growth_reaches_target_return():
         terminal_pe=15.0,
         years=5,
     )
+
+    assert growth is not None
 
     result = expected_annual_return(
         eps_growth=growth,
@@ -134,6 +250,56 @@ def test_required_eps_growth_reaches_target_return():
     assert result == pytest.approx(0.10)
 
 
+def test_required_eps_growth_rejects_invalid_years():
+    assert required_eps_growth(
+        target_return=0.10,
+        dividend_yield=0.02,
+        current_pe=20.0,
+        terminal_pe=15.0,
+        years=0,
+    ) is None
+
+
+def test_required_eps_growth_rejects_nonpositive_current_pe():
+    assert required_eps_growth(
+        target_return=0.10,
+        dividend_yield=0.02,
+        current_pe=0.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_required_eps_growth_rejects_nonpositive_terminal_pe():
+    assert required_eps_growth(
+        target_return=0.10,
+        dividend_yield=0.02,
+        current_pe=20.0,
+        terminal_pe=0.0,
+        years=5,
+    ) is None
+
+
+def test_required_eps_growth_rejects_invalid_target_return():
+    assert required_eps_growth(
+        target_return=-1.0,
+        dividend_yield=0.02,
+        current_pe=20.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_required_eps_growth_rejects_invalid_dividend_factor():
+    assert required_eps_growth(
+        target_return=0.10,
+        dividend_yield=-1.0,
+        current_pe=20.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
 def test_required_purchase_pe_reaches_target_return():
     purchase_pe = required_purchase_pe(
         target_return=0.10,
@@ -142,6 +308,8 @@ def test_required_purchase_pe_reaches_target_return():
         terminal_pe=15.0,
         years=5,
     )
+
+    assert purchase_pe is not None
 
     result = expected_annual_return(
         eps_growth=0.08,
@@ -154,6 +322,56 @@ def test_required_purchase_pe_reaches_target_return():
     assert result == pytest.approx(0.10)
 
 
+def test_required_purchase_pe_rejects_invalid_years():
+    assert required_purchase_pe(
+        target_return=0.10,
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        years=0,
+    ) is None
+
+
+def test_required_purchase_pe_rejects_nonpositive_terminal_pe():
+    assert required_purchase_pe(
+        target_return=0.10,
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=0.0,
+        years=5,
+    ) is None
+
+
+def test_required_purchase_pe_rejects_invalid_target_return():
+    assert required_purchase_pe(
+        target_return=-1.0,
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_required_purchase_pe_rejects_total_eps_loss():
+    assert required_purchase_pe(
+        target_return=0.10,
+        eps_growth=-1.0,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_required_purchase_pe_rejects_invalid_dividend_factor():
+    assert required_purchase_pe(
+        target_return=0.10,
+        eps_growth=0.08,
+        dividend_yield=-1.0,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
 def test_required_purchase_price():
     purchase_pe = required_purchase_pe(
         target_return=0.10,
@@ -162,6 +380,8 @@ def test_required_purchase_price():
         terminal_pe=15.0,
         years=5,
     )
+
+    assert purchase_pe is not None
 
     price = required_purchase_price(
         forward_eps=3.0,
@@ -187,6 +407,29 @@ def test_required_purchase_price_rejects_negative_eps():
         years=5,
     ) is None
 
+
+def test_required_purchase_price_rejects_zero_eps():
+    assert required_purchase_price(
+        forward_eps=0.0,
+        target_return=0.10,
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        years=5,
+    ) is None
+
+
+def test_required_purchase_price_propagates_invalid_assumptions():
+    assert required_purchase_price(
+        forward_eps=3.0,
+        target_return=0.10,
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=0.0,
+        years=5,
+    ) is None
+
+
 def test_calculate_free_cash_flow():
     result = calculate_free_cash_flow(
         operating_cash_flow=9_232_000_000.0,
@@ -205,6 +448,7 @@ def test_free_cash_flow_rejects_negative_capex():
     )
 
     assert result is None
+
 
 def test_calculate_net_debt():
     result = calculate_net_debt(
@@ -240,6 +484,7 @@ def test_net_debt_rejects_negative_cash():
         total_debt=100.0,
         cash=-1.0,
     ) is None
+
 
 def test_growth_rate_positive():
     result = growth_rate(
@@ -285,6 +530,7 @@ def test_growth_rate_preserves_negative_values():
 
     assert result == pytest.approx(-0.50)
 
+
 def test_margin_positive():
     result = margin(
         value=20.0,
@@ -324,6 +570,7 @@ def test_margin_rejects_negative_revenue():
         value=20.0,
         revenue=-100.0,
     ) is None
+
 
 def test_return_on_equity():
     result = return_on_equity(
@@ -373,6 +620,7 @@ def test_return_on_equity_rejects_negative_average_equity():
     )
 
     assert result is None
+
 
 def test_compound_annual_growth_rate():
     result = compound_annual_growth_rate(
