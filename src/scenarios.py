@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from src.calculations import (
     expected_annual_return,
+    required_eps_growth,
     required_purchase_pe,
     required_purchase_price,
 )
@@ -10,6 +11,8 @@ from src.calculations import (
 @dataclass(frozen=True)
 class ValuationScenario:
     name: str
+
+    # Explicit assumptions.
     eps_growth: float
     dividend_yield: float
     terminal_pe: float
@@ -19,11 +22,14 @@ class ValuationScenario:
 class ScenarioResult:
     name: str
 
+    # Assumptions.
     eps_growth: float
     dividend_yield: float
     terminal_pe: float
 
+    # Calculated outputs.
     expected_return: float | None
+    required_eps_growth: float | None
     required_pe: float | None
     required_price: float | None
 
@@ -37,6 +43,14 @@ def evaluate_scenario(
 ) -> ScenarioResult:
     expected_return = expected_annual_return(
         eps_growth=scenario.eps_growth,
+        dividend_yield=scenario.dividend_yield,
+        current_pe=current_pe,
+        terminal_pe=scenario.terminal_pe,
+        years=years,
+    )
+
+    required_growth = required_eps_growth(
+        target_return=target_return,
         dividend_yield=scenario.dividend_yield,
         current_pe=current_pe,
         terminal_pe=scenario.terminal_pe,
@@ -66,6 +80,7 @@ def evaluate_scenario(
         dividend_yield=scenario.dividend_yield,
         terminal_pe=scenario.terminal_pe,
         expected_return=expected_return,
+        required_eps_growth=required_growth,
         required_pe=required_pe,
         required_price=required_price,
     )
