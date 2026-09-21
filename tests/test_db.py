@@ -22,6 +22,7 @@ def test_database_initializes(tmp_path: Path):
 
     expected_tables = {
         "schema_meta",
+	"portfolio_transactions",
         "companies",
         "sources",
         "prices",
@@ -48,7 +49,7 @@ def test_schema_version(tmp_path: Path):
             """
         ).fetchone()
 
-    assert row["value"] == "0.3.0"
+    assert row["value"] == "0.4.0"
 
 
 def test_foreign_keys_are_enabled(tmp_path: Path):
@@ -84,6 +85,8 @@ def test_financial_tables_have_expected_indexes(tmp_path: Path):
 
     expected_indexes = {
         "idx_prices_company_date",
+	"idx_portfolio_transactions_date",
+	"idx_portfolio_transactions_company_date",
         "idx_financials_company_period",
         "idx_estimates_company_date",
         "idx_dividends_company_date",
@@ -124,4 +127,4 @@ def test_schema_version_is_0_3_0(tmp_path):
         ).fetchone()
 
     assert row is not None
-    assert row["value"] == "0.3.0"
+    assert row["value"] == "0.4.0"

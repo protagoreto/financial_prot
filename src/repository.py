@@ -2,7 +2,12 @@ import sqlite3
 from datetime import date
 
 
-from src.models import EstimateRecord, FinancialRecord, PriceRecord
+from src.models import (
+    EstimateRecord,
+    FinancialRecord,
+    PortfolioTransaction,
+    PriceRecord,
+)
 from src.metrics import FinancialMetric, PeriodType
 
 
@@ -504,4 +509,117 @@ def get_verified_publication_date(
 
     return date.fromisoformat(
         row["publication_date"]
+    )
+
+def insert_portfolio_transaction(
+    connection: sqlite3.Connection,
+    transaction: PortfolioTransaction,
+) -> int:
+    connection.execute(
+        """
+        INSERT INTO portfolio_transactions (
+            external_id,
+            transaction_date,
+            transaction_type,
+            company_id,
+            quantity,
+            price,
+            amount,
+            fee,
+            tax,
+            currency,
+            note
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+        ON CONFLICT(external_id)
+        DO NOTHING
+        """,
+        (
+            transaction.external_id,
+            transaction.transaction_date.isoformat(),
+            transaction.transaction_type.value,
+            transaction.company_id,
+            transaction.quantity,
+            transaction.price,
+            transaction.amount,
+            transaction.fee,
+            transaction.tax,
+            transaction.currency.upper(),
+            transaction.note,
+        ),
+    )
+
+    row = connection.execute(
+        """
+        SELECT transaction_id
+        FROM portfolio_transactions
+        WHERE external_id = ?
+        """,
+        (transaction.external_id,),
+    ).fetchone()
+
+    connection.commit()
+
+    return row["transaction_id"]
+
+
+def get_portfolio_transactions(
+    connection: sqlite3.Connection,
+    as_of_date: date | None = None,
+) -> tuple[PortfolioTransaction, ...]:
+    parameters: tuple[str, ...] = ()
+
+    where_clause = ""
+
+    if as_of_date is not None:
+        where_clause = (
+            "WHERE transaction_date <= ?"
+        )
+        parameters = (
+            as_of_date.isoformat(),
+        )
+
+    rows = connection.execute(
+        f"""
+        SELECT
+            external_id,
+            transaction_date,
+            transaction_type,
+            company_id,
+            quantity,
+            price,
+            amount,
+            fee,
+            tax,
+            currency,
+            note
+        FROM portfolio_transactions
+        {where_clause}
+        ORDER BY
+            transaction_date ASC,
+            transaction_id ASC
+        """,
+        parameters,
+    ).fetchall()
+
+    return tuple(
+        PortfolioTransaction(
+            external_id=row["external_id"],
+            transaction_date=row[
+                "transaction_date"
+            ],
+            transaction_type=row[
+                "transaction_type"
+            ],
+            company_id=row["company_id"],
+            quantity=row["quantity"],
+            price=row["price"],
+            amount=row["amount"],
+            fee=row["fee"],
+            tax=row["tax"],
+            currency=row["currency"],
+            note=row["note"],
+        )
+        for row in rows
     )

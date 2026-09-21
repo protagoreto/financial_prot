@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS financials (
     )
 );
 
+
 CREATE TABLE IF NOT EXISTS publication_dates (
     publication_date_id INTEGER PRIMARY KEY AUTOINCREMENT,
     company_id INTEGER NOT NULL,
@@ -102,11 +103,14 @@ CREATE TABLE IF NOT EXISTS publication_dates (
     period_type TEXT NOT NULL,
     publication_date TEXT NOT NULL,
     source_id INTEGER NOT NULL,
-    FOREIGN KEY (company_id)
+
+    FOREIGN KEY(company_id)
         REFERENCES companies(company_id),
-    FOREIGN KEY (source_id)
+
+    FOREIGN KEY(source_id)
         REFERENCES sources(source_id),
-    UNIQUE (
+
+    UNIQUE(
         company_id,
         period_end,
         period_type,
@@ -186,6 +190,57 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
 );
 
 
+CREATE TABLE IF NOT EXISTS portfolio_transactions (
+    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    external_id TEXT NOT NULL UNIQUE,
+    transaction_date TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+
+    company_id INTEGER,
+
+    quantity REAL,
+    price REAL,
+    amount REAL,
+
+    fee REAL NOT NULL DEFAULT 0,
+    tax REAL NOT NULL DEFAULT 0,
+
+    currency TEXT NOT NULL,
+    note TEXT,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(company_id)
+        REFERENCES companies(company_id),
+
+    CHECK (
+        transaction_type IN (
+            'buy',
+            'sell',
+            'dividend',
+            'fee',
+            'tax',
+            'cash'
+        )
+    ),
+
+    CHECK (
+        quantity IS NULL
+        OR quantity > 0
+    ),
+
+    CHECK (
+        price IS NULL
+        OR price > 0
+    ),
+
+    CHECK (fee >= 0),
+    CHECK (tax >= 0),
+    CHECK (length(currency) = 3)
+);
+
+
 CREATE INDEX IF NOT EXISTS idx_prices_company_date
 ON prices(company_id, price_date);
 
@@ -200,6 +255,17 @@ ON estimates(company_id, estimate_date);
 
 CREATE INDEX IF NOT EXISTS idx_dividends_company_date
 ON dividends(company_id, ex_date);
+
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_transactions_date
+ON portfolio_transactions(transaction_date);
+
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_transactions_company_date
+ON portfolio_transactions(
+    company_id,
+    transaction_date
+);
 """
 
 
@@ -208,12 +274,17 @@ def connect(db_path: Path) -> sqlite3.Connection:
     Open a SQLite connection and ensure the parent directory exists.
     """
 
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
 
-    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute(
+        "PRAGMA foreign_keys = ON"
+    )
 
     return connection
 
@@ -224,15 +295,20 @@ def initialize_database(db_path: Path) -> None:
     """
 
     with connect(db_path) as connection:
-
         connection.executescript(SCHEMA)
 
         connection.execute(
             """
-            INSERT OR REPLACE INTO schema_meta(key, value)
+            INSERT OR REPLACE INTO schema_meta(
+                key,
+                value
+            )
             VALUES (?, ?)
             """,
-            ("schema_version", "0.3.0"),
+            (
+                "schema_version",
+                "0.4.0",
+            ),
         )
 
         connection.commit()

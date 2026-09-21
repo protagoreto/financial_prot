@@ -24,3 +24,9 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Private portfolio data
+data/private/
+portfolio_private/
+portfolio*.csv
+transactions*.csv
