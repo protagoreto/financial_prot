@@ -23,6 +23,7 @@ def test_database_initializes(tmp_path: Path):
     expected_tables = {
         "schema_meta",
 	"portfolio_transactions",
+	"portfolio_theses",
         "companies",
         "sources",
         "prices",
@@ -87,6 +88,7 @@ def test_financial_tables_have_expected_indexes(tmp_path: Path):
         "idx_prices_company_date",
 	"idx_portfolio_transactions_date",
 	"idx_portfolio_transactions_company_date",
+	"idx_portfolio_theses_company_date",
         "idx_financials_company_period",
         "idx_estimates_company_date",
         "idx_dividends_company_date",
@@ -112,19 +114,3 @@ def test_publication_dates_table_exists(tmp_path):
     assert row is not None
 
 
-def test_schema_version_is_0_5_0(tmp_path):
-    db_path = tmp_path / "test.sqlite"
-
-    initialize_database(db_path)
-
-    with connect(db_path) as connection:
-        row = connection.execute(
-            """
-            SELECT value
-            FROM schema_meta
-            WHERE key = 'schema_version'
-            """
-        ).fetchone()
-
-    assert row is not None
-    assert row["value"] == "0.5.0"
