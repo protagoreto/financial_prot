@@ -623,3 +623,36 @@ def get_portfolio_transactions(
         )
         for row in rows
     )
+
+
+def get_company_id_by_ticker_exchange(
+    connection: sqlite3.Connection,
+    ticker: str,
+    exchange: str,
+) -> int | None:
+    normalized_ticker = ticker.strip().upper()
+    normalized_exchange = exchange.strip().upper()
+
+    if not normalized_ticker:
+        raise ValueError("ticker cannot be empty")
+
+    if not normalized_exchange:
+        raise ValueError("exchange cannot be empty")
+
+    row = connection.execute(
+        """
+        SELECT company_id
+        FROM companies
+        WHERE UPPER(ticker) = ?
+        AND UPPER(exchange) = ?
+        """,
+        (
+            normalized_ticker,
+            normalized_exchange,
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return row["company_id"]

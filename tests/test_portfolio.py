@@ -494,3 +494,37 @@ def test_new_buy_after_partial_sale_uses_remaining_cost():
     assert position.cost_basis == pytest.approx(750)
     assert position.average_cost == pytest.approx(75)
     assert position.realized_profit_loss == pytest.approx(100)
+
+
+def test_same_day_transactions_preserve_input_order():
+    transactions = (
+        PortfolioTransaction(
+            external_id="z-buy",
+            transaction_date="2026-01-10",
+            transaction_type="buy",
+            currency="EUR",
+            company_id=1,
+            quantity=10,
+            price=50,
+        ),
+        PortfolioTransaction(
+            external_id="a-sell",
+            transaction_date="2026-01-10",
+            transaction_type="sell",
+            currency="EUR",
+            company_id=1,
+            quantity=10,
+            price=60,
+        ),
+    )
+
+    snapshot = build_portfolio_snapshot_from_transactions(
+        transactions
+    )
+
+    assert len(snapshot.positions) == 1
+
+    position = snapshot.positions[0]
+
+    assert position.quantity == pytest.approx(0)
+    assert position.realized_profit_loss == pytest.approx(100)

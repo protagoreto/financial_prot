@@ -76,12 +76,9 @@ def build_portfolio_snapshot_from_transactions(
     states: dict[int, _PositionState] = {}
 
     ordered_transactions = sorted(
-        transactions,
-        key=lambda transaction: (
-            transaction.transaction_date,
-            transaction.external_id,
-        ),
-    )
+    	transactions,
+    	key=lambda transaction: transaction.transaction_date,
+)
 
     for transaction in ordered_transactions:
         if (
