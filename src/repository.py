@@ -3,6 +3,7 @@ from datetime import date
 
 
 from src.models import (
+    CompanyRecord,
     EstimateRecord,
     FinancialRecord,
     PortfolioThesis,
@@ -658,6 +659,50 @@ def get_company_id_by_ticker_exchange(
         return None
 
     return row["company_id"]
+
+
+def get_company_by_id(
+    connection: sqlite3.Connection,
+    company_id: int,
+) -> CompanyRecord | None:
+    if company_id <= 0:
+        raise ValueError("company_id must be positive")
+
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            name,
+            ticker,
+            isin,
+            country,
+            sector,
+            industry,
+            currency,
+            exchange,
+            status
+        FROM companies
+        WHERE company_id = ?
+        """,
+        (company_id,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return CompanyRecord(
+        company_id=row["company_id"],
+        name=row["name"],
+        ticker=row["ticker"],
+        isin=row["isin"],
+        country=row["country"],
+        sector=row["sector"],
+        industry=row["industry"],
+        currency=row["currency"],
+        exchange=row["exchange"],
+        status=row["status"],
+    )
+
 
 def upsert_portfolio_thesis(
     connection: sqlite3.Connection,

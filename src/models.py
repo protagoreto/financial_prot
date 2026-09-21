@@ -16,6 +16,23 @@ from src.metrics import (
 )
 
 
+class CompanyRecord(BaseModel):
+    model_config = ConfigDict(
+        str_strip_whitespace=True
+    )
+
+    company_id: int = Field(gt=0)
+    name: str = Field(min_length=1)
+    ticker: Optional[str] = None
+    isin: Optional[str] = None
+    country: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    currency: Optional[str] = None
+    exchange: Optional[str] = None
+    status: str = Field(min_length=1)
+
+
 class FinancialRecord(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True

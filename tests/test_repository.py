@@ -1,22 +1,22 @@
+from datetime import date
 from pathlib import Path
 
-from datetime import date
 import pytest
+
 from src.db import connect, initialize_database
+from src.metrics import FinancialMetric, PeriodType, StatementType
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.repository import (
+    get_company_by_id,
+    get_financial_for_period_on_or_before,
+    get_latest_estimate_on_or_before,
+    get_latest_financial_on_or_before,
+    get_verified_publication_date,
     insert_estimate_record,
     insert_financial_record,
     insert_price_record,
     insert_publication_date,
 )
-from src.metrics import FinancialMetric, PeriodType, StatementType
-from src.repository import get_latest_financial_on_or_before
-from src.models import EstimateRecord
-from src.repository import get_latest_estimate_on_or_before
-from src.repository import get_verified_publication_date
-from src.repository import get_financial_for_period_on_or_before
-
 def create_company(connection) -> int:
     cursor = connection.execute(
         """
@@ -968,3 +968,56 @@ def test_get_financial_for_period_respects_publication_date(
         3,
         11,
     )
+
+
+def test_get_company_by_id_returns_company(tmp_path: Path):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        company = get_company_by_id(
+            connection=connection,
+            company_id=company_id,
+        )
+
+    assert company is not None
+    assert company.company_id == company_id
+    assert company.name == "Test Company"
+    assert company.ticker == "TEST"
+    assert company.exchange == "TESTEX"
+    assert company.currency == "EUR"
+    assert company.status == "active"
+
+
+def test_get_company_by_id_returns_none_when_unknown(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company = get_company_by_id(
+            connection=connection,
+            company_id=999,
+        )
+
+    assert company is None
+
+
+def test_get_company_by_id_rejects_invalid_id(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        with pytest.raises(
+            ValueError,
+            match="positive",
+        ):
+            get_company_by_id(
+                connection=connection,
+                company_id=0,
+            )

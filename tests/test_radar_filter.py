@@ -43,6 +43,9 @@ def _entry(
 ) -> RadarEntry:
     return RadarEntry(
         company_id=company_id,
+	name=f"Company {company_id}",
+        ticker=f"C{company_id}",
+        exchange="BME",
         as_of_date=AS_OF_DATE,
         fiscal_period_end=FISCAL_PERIOD_END,
         availability=availability,

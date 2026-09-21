@@ -12,6 +12,7 @@ from src.investment import (
     AnalysisAvailability,
     build_investment_analysis,
 )
+from src.repository import get_company_by_id
 from src.scenarios import ValuationScenario
 from src.value import ValueCondition
 
@@ -34,6 +35,9 @@ class RadarScenario:
 @dataclass(frozen=True)
 class RadarEntry:
     company_id: int
+    name: str
+    ticker: str | None
+    exchange: str | None
     as_of_date: date
     fiscal_period_end: date
 
@@ -125,6 +129,16 @@ def _build_radar_entry(
     assessment_policy: AssessmentPolicy,
     low_net_debt_threshold: float,
 ) -> RadarEntry:
+    company_record = get_company_by_id(
+        connection=connection,
+        company_id=company.company_id,
+    )
+
+    if company_record is None:
+        raise ValueError(
+            "Radar company does not exist."
+        )
+
     analysis = build_investment_analysis(
         connection=connection,
         company_id=company.company_id,
@@ -175,6 +189,9 @@ def _build_radar_entry(
 
     return RadarEntry(
         company_id=company.company_id,
+        name=company_record.name,
+        ticker=company_record.ticker,
+        exchange=company_record.exchange,
         as_of_date=as_of_date,
         fiscal_period_end=company.fiscal_period_end,
         availability=analysis.availability,

@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.models import CompanyRecord
 from src.assessment import (
     AssessmentLevel,
     FundamentalAssessment,
@@ -26,6 +27,17 @@ from src.value import (
 
 AS_OF_DATE = date(2026, 9, 21)
 FISCAL_PERIOD_END = date(2026, 12, 31)
+
+def _company_record(
+    company_id: int,
+) -> CompanyRecord:
+    return CompanyRecord(
+        company_id=company_id,
+        name=f"Company {company_id}",
+        ticker=f"C{company_id}",
+        exchange="BME",
+        status="active",
+    )
 
 
 def _scenario() -> ValuationScenario:
@@ -95,7 +107,12 @@ def test_radar_preserves_company_order():
             kwargs["company_id"]
         )
 
-    with patch(
+       with patch(
+        "src.radar.get_company_by_id",
+        side_effect=lambda **kwargs: _company_record(
+            kwargs["company_id"]
+        ),
+    ), patch(
         "src.radar.build_investment_analysis",
         side_effect=fake_analysis,
     ):
@@ -114,6 +131,9 @@ def test_radar_preserves_company_order():
 
 def test_radar_exposes_fundamental_assessment():
     with patch(
+        "src.radar.get_company_by_id",
+        return_value=_company_record(1),
+    ), patch(
         "src.radar.build_investment_analysis",
         return_value=_complete_analysis(1),
     ):
@@ -139,9 +159,11 @@ def test_radar_exposes_fundamental_assessment():
         "positive_net_income",
     )
 
-
 def test_radar_exposes_value_scenarios():
     with patch(
+        "src.radar.get_company_by_id",
+        return_value=_company_record(1),
+    ), patch(
         "src.radar.build_investment_analysis",
         return_value=_complete_analysis(1),
     ):
@@ -165,7 +187,6 @@ def test_radar_exposes_value_scenarios():
     assert scenario.price_margin == pytest.approx(0.10)
     assert scenario.condition == ValueCondition.TARGET_MET
 
-
 def test_radar_handles_insufficient_analysis():
     analysis = InvestmentAnalysis(
         company_id=1,
@@ -177,6 +198,9 @@ def test_radar_handles_insufficient_analysis():
     )
 
     with patch(
+        "src.radar.get_company_by_id",
+        return_value=_company_record(1),
+    ), patch(
         "src.radar.build_investment_analysis",
         return_value=analysis,
     ):
@@ -202,7 +226,6 @@ def test_radar_handles_insufficient_analysis():
     assert entry.risk_reasons == ()
     assert entry.value_trap_reasons == ()
     assert entry.scenarios == ()
-
 
 def test_radar_rejects_duplicate_companies():
     companies = (
@@ -272,3 +295,63 @@ def test_radar_rejects_invalid_target_return():
             scenarios=(_scenario(),),
             target_return=-1.0,
         )
+
+def test_radar_exposes_company_identity():
+    with patch(
+        "src.radar.get_company_by_id",
+        return_value=CompanyRecord(
+            company_id=1,
+            name="Inditex",
+            ticker="ITX",
+            isin="ES0148396007",
+            country="Spain",
+            sector="Consumer Cyclical",
+            industry="Apparel Retail",
+            currency="EUR",
+            exchange="BME",
+            status="active",
+        ),
+    ), patch(
+        "src.radar.build_investment_analysis",
+        return_value=_complete_analysis(1),
+    ):
+        snapshot = build_radar_snapshot(
+            connection=None,
+            companies=(
+                RadarCompanyInput(
+                    company_id=1,
+                    fiscal_period_end=FISCAL_PERIOD_END,
+                ),
+            ),
+            as_of_date=AS_OF_DATE,
+            scenarios=(_scenario(),),
+        )
+
+    entry = snapshot.entries[0]
+
+    assert entry.company_id == 1
+    assert entry.name == "Inditex"
+    assert entry.ticker == "ITX"
+    assert entry.exchange == "BME"
+
+
+def test_radar_rejects_unknown_company():
+    with patch(
+        "src.radar.get_company_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(
+            ValueError,
+            match="does not exist",
+        ):
+            build_radar_snapshot(
+                connection=None,
+                companies=(
+                    RadarCompanyInput(
+                        company_id=1,
+                        fiscal_period_end=FISCAL_PERIOD_END,
+                    ),
+                ),
+                as_of_date=AS_OF_DATE,
+                scenarios=(_scenario(),),
+            )
