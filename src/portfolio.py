@@ -578,3 +578,177 @@ def _calculate_weight(
         return None
 
     return market_value / total_value
+
+@dataclass(frozen=True)
+class PortfolioIncomeSummary:
+    currency: str
+
+    gross_dividends: float
+    dividend_fees: float
+    dividend_taxes: float
+    net_dividends: float
+
+    realized_profit_loss: float
+    unrealized_profit_loss: float
+
+    economic_profit_loss: float
+
+
+@dataclass(frozen=True)
+class PortfolioPerformanceSnapshot:
+    as_of_date: date
+    income_summaries: tuple[PortfolioIncomeSummary, ...]
+
+
+def build_portfolio_performance_snapshot(
+    connection: sqlite3.Connection,
+    as_of_date: date,
+) -> PortfolioPerformanceSnapshot:
+    valued_snapshot = build_valued_portfolio_snapshot(
+        connection=connection,
+        as_of_date=as_of_date,
+    )
+
+    transactions = get_portfolio_transactions(
+        connection=connection,
+        as_of_date=as_of_date,
+    )
+
+    dividend_data = _calculate_dividends_by_currency(
+        transactions=transactions,
+    )
+
+    realized_by_currency: dict[str, float] = {}
+    unrealized_by_currency: dict[str, float] = {}
+
+    portfolio_snapshot = build_portfolio_snapshot(
+        connection=connection,
+        as_of_date=as_of_date,
+    )
+
+    for position in portfolio_snapshot.positions:
+        realized_by_currency[position.currency] = (
+            realized_by_currency.get(
+                position.currency,
+                0.0,
+            )
+            + position.realized_profit_loss
+        )
+
+    for position in valued_snapshot.positions:
+        unrealized_by_currency[position.currency] = (
+            unrealized_by_currency.get(
+                position.currency,
+                0.0,
+            )
+            + position.unrealized_profit_loss
+        )
+
+    currencies = (
+        set(dividend_data)
+        | set(realized_by_currency)
+        | set(unrealized_by_currency)
+    )
+
+    summaries = tuple(
+        _build_income_summary(
+            currency=currency,
+            dividend_data=dividend_data,
+            realized_by_currency=realized_by_currency,
+            unrealized_by_currency=unrealized_by_currency,
+        )
+        for currency in sorted(currencies)
+    )
+
+    return PortfolioPerformanceSnapshot(
+        as_of_date=as_of_date,
+        income_summaries=summaries,
+    )
+
+
+def _calculate_dividends_by_currency(
+    transactions: tuple[PortfolioTransaction, ...],
+) -> dict[str, dict[str, float]]:
+    result: dict[str, dict[str, float]] = {}
+
+    for transaction in transactions:
+        if (
+            transaction.transaction_type
+            != PortfolioTransactionType.DIVIDEND
+        ):
+            continue
+
+        if transaction.amount is None:
+            raise PortfolioCalculationError(
+                "dividend transaction is incomplete"
+            )
+
+        currency = transaction.currency.upper()
+
+        data = result.setdefault(
+            currency,
+            {
+                "gross": 0.0,
+                "fees": 0.0,
+                "taxes": 0.0,
+            },
+        )
+
+        data["gross"] += transaction.amount
+        data["fees"] += transaction.fee
+        data["taxes"] += transaction.tax
+
+    return result
+
+
+def _build_income_summary(
+    currency: str,
+    dividend_data: dict[str, dict[str, float]],
+    realized_by_currency: dict[str, float],
+    unrealized_by_currency: dict[str, float],
+) -> PortfolioIncomeSummary:
+    dividends = dividend_data.get(
+        currency,
+        {
+            "gross": 0.0,
+            "fees": 0.0,
+            "taxes": 0.0,
+        },
+    )
+
+    gross_dividends = dividends["gross"]
+    dividend_fees = dividends["fees"]
+    dividend_taxes = dividends["taxes"]
+
+    net_dividends = (
+        gross_dividends
+        - dividend_fees
+        - dividend_taxes
+    )
+
+    realized_profit_loss = realized_by_currency.get(
+        currency,
+        0.0,
+    )
+
+    unrealized_profit_loss = unrealized_by_currency.get(
+        currency,
+        0.0,
+    )
+
+    economic_profit_loss = (
+        realized_profit_loss
+        + unrealized_profit_loss
+        + net_dividends
+    )
+
+    return PortfolioIncomeSummary(
+        currency=currency,
+        gross_dividends=gross_dividends,
+        dividend_fees=dividend_fees,
+        dividend_taxes=dividend_taxes,
+        net_dividends=net_dividends,
+        realized_profit_loss=realized_profit_loss,
+        unrealized_profit_loss=unrealized_profit_loss,
+        economic_profit_loss=economic_profit_loss,
+    )
