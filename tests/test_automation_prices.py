@@ -285,3 +285,135 @@ def test_update_prices_rejects_inverted_date_range(
             )
 
     assert provider.calls == []
+
+
+class SelectiveFailurePriceProvider(RecordingPriceProvider):
+    def __init__(
+        self,
+        failing_symbol: str,
+    ) -> None:
+        super().__init__()
+        self.failing_symbol = failing_symbol
+
+    def get_prices(
+        self,
+        company_id: int,
+        symbol: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[PriceRecord]:
+        if symbol == self.failing_symbol:
+            self.calls.append(
+                (
+                    company_id,
+                    symbol,
+                    start_date,
+                    end_date,
+                )
+            )
+            raise RuntimeError(
+                f"Price provider failed for {symbol}."
+            )
+
+        return super().get_prices(
+            company_id=company_id,
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+
+def test_update_prices_continues_after_company_failure(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    first = _company(
+        name="First Company",
+        ticker="FIRST",
+        symbol="FIRST.MC",
+    )
+    failing = _company(
+        name="Failing Company",
+        ticker="FAIL",
+        symbol="FAIL.MC",
+    )
+    third = _company(
+        name="Third Company",
+        ticker="THIRD",
+        symbol="THIRD.MC",
+    )
+
+    provider = SelectiveFailurePriceProvider(
+        failing_symbol="FAIL.MC",
+    )
+
+    with connect(db_path) as connection:
+        result = update_prices(
+            connection=connection,
+            provider=provider,
+            universe=(first, failing, third),
+            initial_start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 1),
+        )
+
+        price_count = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM prices
+            """
+        ).fetchone()["count"]
+
+    assert len(result.companies) == 3
+    assert result.processed_records == 2
+    assert result.is_complete is False
+
+    assert len(result.failed_companies) == 1
+
+    failed = result.failed_companies[0]
+
+    assert failed.company == failing
+    assert failed.processed_records == 0
+    assert failed.status == "failed"
+    assert failed.error == (
+        "Price provider failed for FAIL.MC."
+    )
+
+    assert price_count == 2
+
+    assert tuple(
+        call[1]
+        for call in provider.calls
+    ) == (
+        "FIRST.MC",
+        "FAIL.MC",
+        "THIRD.MC",
+    )
+
+
+def test_update_prices_is_complete_when_all_companies_succeed(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    provider = RecordingPriceProvider()
+
+    company = _company(
+        name="Test Company",
+        ticker="TEST",
+        symbol="TEST.MC",
+    )
+
+    with connect(db_path) as connection:
+        result = update_prices(
+            connection=connection,
+            provider=provider,
+            universe=(company,),
+            initial_start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 1),
+        )
+
+    assert result.is_complete is True
+    assert result.failed_companies == ()

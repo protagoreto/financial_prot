@@ -1,16 +1,23 @@
 from dataclasses import dataclass
 from datetime import date
 import sqlite3
+from time import perf_counter
+
 
 from src.assessment import AssessmentPolicy
 from src.ingestion import (
     get_or_create_company,
     ingest_prices_incremental,
 )
+from src.models import (
+    AnalysisRunRecord,
+    AnalysisRunStatus,
+)
 from src.providers.base import PriceProvider
+from src.radar_service import RadarRun, run_radar
+from src.repository import insert_analysis_run
 from src.scenarios import ValuationScenario
 from src.universe import CompanyConfig
-from src.radar_service import RadarRun, run_radar
 
 
 @dataclass(frozen=True)
@@ -99,11 +106,18 @@ class RadarRunConfig:
         return True
 
 
+class CompanyPriceUpdateStatus(str):
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
 @dataclass(frozen=True)
 class CompanyPriceUpdate:
     company: CompanyConfig
     company_id: int
     processed_records: int
+    status: str = CompanyPriceUpdateStatus.SUCCESS
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +132,18 @@ class PriceUpdateRun:
             company.processed_records
             for company in self.companies
         )
+
+    @property
+    def failed_companies(self) -> tuple[CompanyPriceUpdate, ...]:
+        return tuple(
+            company
+            for company in self.companies
+            if company.status == CompanyPriceUpdateStatus.FAILED
+        )
+
+    @property
+    def is_complete(self) -> bool:
+        return not self.failed_companies
 
 
 def update_prices(
@@ -143,15 +169,27 @@ def update_prices(
             currency=company.currency,
         )
 
-        processed_records = ingest_prices_incremental(
-            connection=connection,
-            provider=provider,
-            company_id=company_id,
-            symbol=company.symbol,
-            currency=company.currency,
-            initial_start_date=initial_start_date,
-            end_date=end_date,
-        )
+        try:
+            processed_records = ingest_prices_incremental(
+                connection=connection,
+                provider=provider,
+                company_id=company_id,
+                symbol=company.symbol,
+                currency=company.currency,
+                initial_start_date=initial_start_date,
+                end_date=end_date,
+            )
+        except Exception as exc:
+            updates.append(
+                CompanyPriceUpdate(
+                    company=company,
+                    company_id=company_id,
+                    processed_records=0,
+                    status=CompanyPriceUpdateStatus.FAILED,
+                    error=str(exc),
+                )
+            )
+            continue
 
         updates.append(
             CompanyPriceUpdate(
@@ -186,3 +224,49 @@ def run_automated_radar(
         assessment_policy=config.assessment_policy,
         low_net_debt_threshold=config.low_net_debt_threshold,
     )
+
+
+def run_audited_radar(
+    connection: sqlite3.Connection,
+    config: RadarRunConfig,
+    as_of_date: date,
+    model_version: str,
+    data_version: str,
+) -> RadarRun:
+    started_at = perf_counter()
+
+    try:
+        result = run_automated_radar(
+            connection=connection,
+            config=config,
+            as_of_date=as_of_date,
+        )
+    except Exception as exc:
+        execution_time = perf_counter() - started_at
+
+        insert_analysis_run(
+            connection=connection,
+            record=AnalysisRunRecord(
+                model_version=model_version,
+                data_version=data_version,
+                status=AnalysisRunStatus.FAILED,
+                execution_time=execution_time,
+                error=str(exc),
+            ),
+        )
+
+        raise
+
+    execution_time = perf_counter() - started_at
+
+    insert_analysis_run(
+        connection=connection,
+        record=AnalysisRunRecord(
+            model_version=model_version,
+            data_version=data_version,
+            status=AnalysisRunStatus.SUCCESS,
+            execution_time=execution_time,
+        ),
+    )
+
+    return result
