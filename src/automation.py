@@ -1,6 +1,13 @@
 from dataclasses import dataclass
+from datetime import date
+import sqlite3
 
 from src.assessment import AssessmentPolicy
+from src.ingestion import (
+    get_or_create_company,
+    ingest_prices_incremental,
+)
+from src.providers.base import PriceProvider
 from src.scenarios import ValuationScenario
 from src.universe import CompanyConfig
 
@@ -89,3 +96,72 @@ class RadarRunConfig:
                 return False
 
         return True
+
+
+@dataclass(frozen=True)
+class CompanyPriceUpdate:
+    company: CompanyConfig
+    company_id: int
+    processed_records: int
+
+
+@dataclass(frozen=True)
+class PriceUpdateRun:
+    start_date: date
+    end_date: date
+    companies: tuple[CompanyPriceUpdate, ...]
+
+    @property
+    def processed_records(self) -> int:
+        return sum(
+            company.processed_records
+            for company in self.companies
+        )
+
+
+def update_prices(
+    connection: sqlite3.Connection,
+    provider: PriceProvider,
+    universe: tuple[CompanyConfig, ...],
+    initial_start_date: date,
+    end_date: date,
+) -> PriceUpdateRun:
+    if initial_start_date > end_date:
+        raise ValueError(
+            "Initial start date cannot be after end date."
+        )
+
+    updates: list[CompanyPriceUpdate] = []
+
+    for company in universe:
+        company_id = get_or_create_company(
+            connection=connection,
+            name=company.name,
+            ticker=company.ticker,
+            exchange=company.exchange,
+            currency=company.currency,
+        )
+
+        processed_records = ingest_prices_incremental(
+            connection=connection,
+            provider=provider,
+            company_id=company_id,
+            symbol=company.symbol,
+            currency=company.currency,
+            initial_start_date=initial_start_date,
+            end_date=end_date,
+        )
+
+        updates.append(
+            CompanyPriceUpdate(
+                company=company,
+                company_id=company_id,
+                processed_records=processed_records,
+            )
+        )
+
+    return PriceUpdateRun(
+        start_date=initial_start_date,
+        end_date=end_date,
+        companies=tuple(updates),
+    )
