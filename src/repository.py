@@ -3,6 +3,7 @@ from datetime import date
 
 
 from src.models import (
+    AnalysisRunRecord,
     CompanyRecord,
     EstimateRecord,
     FinancialRecord,
@@ -830,3 +831,33 @@ def get_portfolio_thesis_on_or_before(
         risks=row["risks"],
         review_date=row["review_date"],
     )
+
+
+def insert_analysis_run(
+    connection: sqlite3.Connection,
+    record: AnalysisRunRecord,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO analysis_runs (
+            model_version,
+            data_version,
+            company_id,
+            status,
+            execution_time,
+            error
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.model_version,
+            record.data_version,
+            record.company_id,
+            record.status.value,
+            record.execution_time,
+            record.error,
+        ),
+    )
+
+    connection.commit()
+    return cursor.lastrowid

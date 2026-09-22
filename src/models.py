@@ -386,3 +386,63 @@ class PortfolioThesis(BaseModel):
             )
 
         return self
+
+
+class AnalysisRunStatus(str, Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class AnalysisRunRecord(BaseModel):
+    model_config = ConfigDict(
+        str_strip_whitespace=True
+    )
+
+    model_version: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    data_version: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    company_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+    )
+
+    status: AnalysisRunStatus
+
+    execution_time: Optional[float] = Field(
+        default=None,
+        ge=0,
+    )
+
+    error: Optional[str] = Field(
+        default=None,
+        max_length=5000,
+    )
+
+    @model_validator(mode="after")
+    def validate_analysis_run(
+        self,
+    ) -> "AnalysisRunRecord":
+        if (
+            self.status == AnalysisRunStatus.SUCCESS
+            and self.error is not None
+        ):
+            raise ValueError(
+                "successful analysis run cannot contain error"
+            )
+
+        if (
+            self.status == AnalysisRunStatus.FAILED
+            and self.error is None
+        ):
+            raise ValueError(
+                "failed analysis run requires error"
+            )
+
+        return self
