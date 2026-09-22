@@ -24,6 +24,12 @@ class Settings:
         "VIST_AI_PROVIDER",
         "local",
     )
+    telegram_bot_token: str | None = os.getenv(
+        "VIST_TELEGRAM_BOT_TOKEN"
+    )
+    telegram_chat_id: str | None = os.getenv(
+        "VIST_TELEGRAM_CHAT_ID"
+    )
 
 
 settings = Settings()
