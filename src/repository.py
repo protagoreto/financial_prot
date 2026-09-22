@@ -427,6 +427,45 @@ def get_latest_estimate_on_or_before(
         source_id=row["source_id"],
     )
 
+
+def get_next_estimate_period_on_or_after(
+    connection: sqlite3.Connection,
+    company_id: int,
+    metric: FinancialMetric,
+    as_of_date: date,
+) -> date | None:
+    if company_id <= 0:
+        raise ValueError(
+            "company_id must be positive"
+        )
+
+    row = connection.execute(
+        """
+        SELECT fiscal_period_end
+        FROM estimates
+        WHERE company_id = ?
+        AND metric = ?
+        AND estimate_date <= ?
+        AND fiscal_period_end >= ?
+        ORDER BY fiscal_period_end ASC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            metric.value,
+            as_of_date.isoformat(),
+            as_of_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return date.fromisoformat(
+        row["fiscal_period_end"]
+    )
+
+
 def insert_publication_date(
     connection: sqlite3.Connection,
     company_id: int,

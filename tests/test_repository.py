@@ -11,6 +11,7 @@ from src.repository import (
     get_financial_for_period_on_or_before,
     get_latest_estimate_on_or_before,
     get_latest_financial_on_or_before,
+    get_next_estimate_period_on_or_after,
     get_verified_publication_date,
     insert_estimate_record,
     insert_financial_record,
@@ -1020,4 +1021,153 @@ def test_get_company_by_id_rejects_invalid_id(
             get_company_by_id(
                 connection=connection,
                 company_id=0,
+            )
+
+
+def test_get_next_estimate_period_selects_nearest_forward_period(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.db"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-09-01",
+            ),
+        )
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                value=2.2,
+                fiscal_period_end="2027-12-31",
+                estimate_date="2026-09-01",
+            ),
+        )
+
+        result = get_next_estimate_period_on_or_after(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 9, 22),
+        )
+
+    assert result == date(2026, 12, 31)
+
+
+def test_get_next_estimate_period_is_point_in_time(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.db"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                value=2.0,
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-10-01",
+            ),
+        )
+
+        result = get_next_estimate_period_on_or_after(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 9, 22),
+        )
+
+    assert result is None
+
+
+def test_get_next_estimate_period_excludes_past_periods(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.db"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                value=1.8,
+                fiscal_period_end="2025-12-31",
+                estimate_date="2025-09-01",
+            ),
+        )
+
+        result = get_next_estimate_period_on_or_after(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 9, 22),
+        )
+
+    assert result is None
+
+
+def test_get_next_estimate_period_respects_metric(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.db"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric=FinancialMetric.REVENUE,
+                value=1000.0,
+                fiscal_period_end="2026-12-31",
+                estimate_date="2026-09-01",
+            ),
+        )
+
+        result = get_next_estimate_period_on_or_after(
+            connection=connection,
+            company_id=company_id,
+            metric=FinancialMetric.EPS,
+            as_of_date=date(2026, 9, 22),
+        )
+
+    assert result is None
+
+
+def test_get_next_estimate_period_rejects_invalid_company_id(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.db"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        with pytest.raises(
+            ValueError,
+            match="company_id must be positive",
+        ):
+            get_next_estimate_period_on_or_after(
+                connection=connection,
+                company_id=0,
+                metric=FinancialMetric.EPS,
+                as_of_date=date(2026, 9, 22),
             )
