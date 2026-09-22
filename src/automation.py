@@ -10,6 +10,7 @@ from src.ingestion import (
 from src.providers.base import PriceProvider
 from src.scenarios import ValuationScenario
 from src.universe import CompanyConfig
+from src.radar_service import RadarRun, run_radar
 
 
 @dataclass(frozen=True)
@@ -164,4 +165,24 @@ def update_prices(
         start_date=initial_start_date,
         end_date=end_date,
         companies=tuple(updates),
+    )
+
+
+def run_automated_radar(
+    connection: sqlite3.Connection,
+    config: RadarRunConfig,
+    as_of_date: date,
+) -> RadarRun:
+    if not config.is_valid():
+        raise ValueError("Invalid radar run configuration.")
+
+    return run_radar(
+        connection=connection,
+        universe=config.universe,
+        as_of_date=as_of_date,
+        scenarios=config.scenarios,
+        target_return=config.target_return,
+        years=config.years,
+        assessment_policy=config.assessment_policy,
+        low_net_debt_threshold=config.low_net_debt_threshold,
     )
