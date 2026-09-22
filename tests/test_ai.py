@@ -168,3 +168,70 @@ def test_ai_context_can_be_constructed_explicitly():
     assert context.ticker is None
     assert context.quality_level is None
     assert context.scenarios == ()
+
+
+def test_ai_analysis_narrative_is_valid():
+    from src.ai import AIAnalysisNarrative
+
+    narrative = AIAnalysisNarrative(
+        summary="The available analysis is complete.",
+        quality_commentary="Quality signals are strong.",
+        risk_commentary="Recorded risk signals are low.",
+        valuation_commentary=(
+            "The Base scenario meets the configured target."
+        ),
+        limitations=(
+            "Narrative is limited to supplied analysis context.",
+        ),
+    )
+
+    assert narrative.is_valid()
+
+
+def test_ai_analysis_narrative_rejects_blank_required_text():
+    from src.ai import AIAnalysisNarrative
+
+    narrative = AIAnalysisNarrative(
+        summary=" ",
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=(),
+    )
+
+    assert not narrative.is_valid()
+
+
+def test_ai_analysis_narrative_rejects_blank_limitation():
+    from src.ai import AIAnalysisNarrative
+
+    narrative = AIAnalysisNarrative(
+        summary="Summary.",
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=("",),
+    )
+
+    assert not narrative.is_valid()
+
+
+def test_ai_analysis_narrative_is_frozen():
+    from src.ai import AIAnalysisNarrative
+
+    narrative = AIAnalysisNarrative(
+        summary="Summary.",
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=(),
+    )
+
+    try:
+        narrative.summary = "Changed"
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError(
+            "AI analysis narrative must be immutable."
+        )

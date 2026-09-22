@@ -66,3 +66,34 @@ def build_ai_analysis_context(
             for scenario in entry.scenarios
         ),
     )
+
+
+@dataclass(frozen=True)
+class AIAnalysisNarrative:
+    summary: str
+    quality_commentary: str
+    risk_commentary: str
+    valuation_commentary: str
+    limitations: tuple[str, ...]
+
+    def is_valid(self) -> bool:
+        required_text = (
+            self.summary,
+            self.quality_commentary,
+            self.risk_commentary,
+            self.valuation_commentary,
+        )
+
+        if any(
+            not value.strip()
+            for value in required_text
+        ):
+            return False
+
+        if any(
+            not limitation.strip()
+            for limitation in self.limitations
+        ):
+            return False
+
+        return True
