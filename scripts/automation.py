@@ -10,7 +10,10 @@ from src.automation import (
 )
 from src.config import settings
 from src.db import connect, initialize_database
+from src.message_runtime import get_message_runtime
 from src.providers.yahoo import YahooPriceProvider
+from src.radar_message_service import send_radar_report_row
+from src.radar_report import build_radar_report
 from src.scenarios import ValuationScenario
 from src.universe import IBEX_UNIVERSE
 
@@ -137,6 +140,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=2.0,
     )
 
+    radar_parser.add_argument(
+        "--notify",
+        choices=("telegram",),
+        default=None,
+        help=(
+            "Send radar report rows through the selected "
+            "message provider."
+        ),
+    )
+
+    radar_parser.add_argument(
+        "--notify-scenario",
+        default=None,
+        help=(
+            "Scenario name to send when --notify is used."
+        ),
+    )
+
     return parser
 
 
@@ -187,7 +208,15 @@ def _run_radar(
     target_return: float,
     years: int,
     low_net_debt_threshold: float,
+    notify: str | None,
+    notify_scenario: str | None,
 ) -> int:
+    if notify is not None and notify_scenario is None:
+        raise ValueError(
+            "--notify-scenario is required when "
+            "--notify is used."
+        )
+
     scenarios = tuple(
         _parse_scenario(values)
         for values in scenario_values
@@ -219,6 +248,27 @@ def _run_radar(
         f"Unresolved companies: {len(result.unresolved)}"
     )
 
+    if notify is not None:
+        rows = build_radar_report(
+            snapshot=result.snapshot,
+            scenario_name=notify_scenario,
+        )
+
+        runtime = get_message_runtime(
+            provider_name=notify,
+        )
+
+        for row in rows:
+            send_radar_report_row(
+                provider=runtime.provider,
+                destination=runtime.destination,
+                row=row,
+            )
+
+        print(
+            f"Notifications sent: {len(rows)}"
+        )
+
     return 0
 
 
@@ -247,6 +297,8 @@ def main(
             low_net_debt_threshold=(
                 args.low_net_debt_threshold
             ),
+            notify=args.notify,
+            notify_scenario=args.notify_scenario,
         )
 
     parser.error(
