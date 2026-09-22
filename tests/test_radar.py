@@ -107,7 +107,7 @@ def test_radar_preserves_company_order():
             kwargs["company_id"]
         )
 
-       with patch(
+    with patch(
         "src.radar.get_company_by_id",
         side_effect=lambda **kwargs: _company_record(
             kwargs["company_id"]
