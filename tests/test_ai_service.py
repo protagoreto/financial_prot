@@ -1,11 +1,10 @@
+import json
 from datetime import date
 
 import pytest
 
-from src.ai import (
-    AIAnalysisContext,
-    AIAnalysisNarrative,
-)
+from src.ai import AIAnalysisNarrative
+from src.ai_prompt import AIPrompt, AI_SYSTEM_INSTRUCTIONS
 from src.ai_service import (
     AIAnalysisResult,
     generate_ai_analysis,
@@ -48,16 +47,26 @@ def _entry() -> RadarEntry:
 
 
 class ValidProvider(AIProvider):
+    def __init__(self) -> None:
+        self.received_prompt: AIPrompt | None = None
+
     @property
     def name(self) -> str:
         return "valid"
 
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
+        self.received_prompt = prompt
+
+        context = json.loads(prompt.context_json)
+
         return AIAnalysisNarrative(
-            summary=f"Analysis for {context.name}.",
+            summary=(
+                f"Analysis for "
+                f"{context['company']['name']}."
+            ),
             quality_commentary=(
                 "Quality assessment interpreted."
             ),
@@ -68,7 +77,7 @@ class ValidProvider(AIProvider):
                 "Valuation scenarios interpreted."
             ),
             limitations=(
-                "Uses only supplied deterministic context.",
+                "Uses only supplied deterministic prompt.",
             ),
         )
 
@@ -82,8 +91,10 @@ class BlankNameProvider(ValidProvider):
 class InvalidNarrativeProvider(ValidProvider):
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
+        self.received_prompt = prompt
+
         return AIAnalysisNarrative(
             summary="",
             quality_commentary="Quality commentary.",
@@ -96,16 +107,19 @@ class InvalidNarrativeProvider(ValidProvider):
 class WrongTypeProvider(ValidProvider):
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
+        self.received_prompt = prompt
+
         return "not a narrative"  # type: ignore[return-value]
 
 
 class FailingProvider(ValidProvider):
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
+        self.received_prompt = prompt
         raise RuntimeError("provider unavailable")
 
 
@@ -119,6 +133,7 @@ def test_generate_ai_analysis_returns_typed_result():
     assert result.provider_name == "valid"
     assert result.context.company_id == 1
     assert result.context.name == "Test Company"
+    assert result.prompt.is_valid()
     assert isinstance(
         result.narrative,
         AIAnalysisNarrative,
@@ -158,6 +173,33 @@ def test_generate_ai_analysis_preserves_deterministic_context():
     )
 
 
+def test_generate_ai_analysis_passes_prepared_prompt_to_provider():
+    provider = ValidProvider()
+
+    result = generate_ai_analysis(
+        provider=provider,
+        entry=_entry(),
+    )
+
+    assert provider.received_prompt == result.prompt
+    assert (
+        result.prompt.instructions
+        == AI_SYSTEM_INSTRUCTIONS
+    )
+
+    decoded = json.loads(result.prompt.context_json)
+
+    assert decoded["company"]["company_id"] == 1
+    assert decoded["company"]["name"] == "Test Company"
+
+    scenario = decoded["analysis"]["scenarios"][0]
+
+    assert scenario["expected_return"] == 0.12
+    assert scenario["required_price"] == 55.0
+    assert scenario["price_margin"] == 0.10
+    assert scenario["condition"] == "target_met"
+
+
 def test_generate_ai_analysis_rejects_blank_provider_name():
     with pytest.raises(
         ValueError,
@@ -192,14 +234,19 @@ def test_generate_ai_analysis_rejects_wrong_return_type():
 
 
 def test_generate_ai_analysis_propagates_provider_failure():
+    provider = FailingProvider()
+
     with pytest.raises(
         RuntimeError,
         match="provider unavailable",
     ):
         generate_ai_analysis(
-            provider=FailingProvider(),
+            provider=provider,
             entry=_entry(),
         )
+
+    assert provider.received_prompt is not None
+    assert provider.received_prompt.is_valid()
 
 
 def test_ai_analysis_result_is_frozen():

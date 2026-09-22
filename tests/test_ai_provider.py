@@ -1,7 +1,12 @@
+import json
+from datetime import date
+
 from src.ai import (
     AIAnalysisContext,
     AIAnalysisNarrative,
 )
+from src.ai_prompt import AIPrompt, build_ai_prompt
+from src.investment import AnalysisAvailability
 from src.providers.ai_base import AIProvider
 
 
@@ -12,32 +17,27 @@ class FakeAIProvider(AIProvider):
 
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
+        context = json.loads(prompt.context_json)
+
         return AIAnalysisNarrative(
-            summary=f"Analysis for {context.name}.",
+            summary=(
+                f"Analysis for "
+                f"{context['company']['name']}."
+            ),
             quality_commentary="Quality context received.",
             risk_commentary="Risk context received.",
             valuation_commentary=(
                 "Valuation context received."
             ),
             limitations=(
-                "Generated only from supplied context.",
+                "Generated only from supplied prompt.",
             ),
         )
 
 
-def test_ai_provider_exposes_name():
-    provider = FakeAIProvider()
-
-    assert provider.name == "fake"
-
-
-def test_ai_provider_generates_typed_narrative():
-    from datetime import date
-
-    from src.investment import AnalysisAvailability
-
+def _prompt() -> AIPrompt:
     context = AIAnalysisContext(
         company_id=1,
         name="Test Company",
@@ -55,9 +55,19 @@ def test_ai_provider_generates_typed_narrative():
         scenarios=(),
     )
 
+    return build_ai_prompt(context)
+
+
+def test_ai_provider_exposes_name():
     provider = FakeAIProvider()
 
-    narrative = provider.generate_analysis(context)
+    assert provider.name == "fake"
+
+
+def test_ai_provider_generates_typed_narrative():
+    provider = FakeAIProvider()
+
+    narrative = provider.generate_analysis(_prompt())
 
     assert isinstance(
         narrative,
@@ -66,6 +76,17 @@ def test_ai_provider_generates_typed_narrative():
     assert narrative.summary == (
         "Analysis for Test Company."
     )
+    assert narrative.is_valid()
+
+
+def test_ai_provider_receives_prepared_prompt():
+    provider = FakeAIProvider()
+    prompt = _prompt()
+
+    narrative = provider.generate_analysis(prompt)
+
+    assert prompt.is_valid()
+    assert prompt.instructions.strip()
     assert narrative.is_valid()
 
 

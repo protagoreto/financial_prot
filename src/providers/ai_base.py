@@ -1,17 +1,15 @@
 from abc import ABC, abstractmethod
 
-from src.ai import (
-    AIAnalysisContext,
-    AIAnalysisNarrative,
-)
+from src.ai import AIAnalysisNarrative
+from src.ai_prompt import AIPrompt
 
 
 class AIProvider(ABC):
     """
     Common interface for AI narrative providers.
 
-    Providers may interpret deterministic analysis context,
-    but must not replace or modify financial calculations.
+    Providers receive only the prepared AI prompt and must
+    return a typed narrative response.
     """
 
     @property
@@ -25,10 +23,10 @@ class AIProvider(ABC):
     @abstractmethod
     def generate_analysis(
         self,
-        context: AIAnalysisContext,
+        prompt: AIPrompt,
     ) -> AIAnalysisNarrative:
         """
-        Generate narrative interpretation from deterministic
-        financial analysis context.
+        Generate narrative interpretation from the prepared
+        deterministic AI prompt.
         """
         raise NotImplementedError

@@ -5,6 +5,7 @@ from src.ai import (
     AIAnalysisNarrative,
     build_ai_analysis_context,
 )
+from src.ai_prompt import AIPrompt, build_ai_prompt
 from src.providers.ai_base import AIProvider
 from src.radar import RadarEntry
 
@@ -13,6 +14,7 @@ from src.radar import RadarEntry
 class AIAnalysisResult:
     provider_name: str
     context: AIAnalysisContext
+    prompt: AIPrompt
     narrative: AIAnalysisNarrative
 
 
@@ -28,8 +30,14 @@ def generate_ai_analysis(
         )
 
     context = build_ai_analysis_context(entry)
+    prompt = build_ai_prompt(context)
 
-    narrative = provider.generate_analysis(context)
+    if not prompt.is_valid():
+        raise ValueError(
+            "AI prompt is invalid."
+        )
+
+    narrative = provider.generate_analysis(prompt)
 
     if not isinstance(
         narrative,
@@ -47,5 +55,6 @@ def generate_ai_analysis(
     return AIAnalysisResult(
         provider_name=provider_name,
         context=context,
+        prompt=prompt,
         narrative=narrative,
     )
