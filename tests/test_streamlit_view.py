@@ -117,3 +117,45 @@ def test_build_radar_table_handles_empty_radar():
     assert build_radar_table(
         presentation
     ) == []
+
+
+def test_build_unresolved_table_preserves_issue():
+    from src.radar_universe import (
+        RadarUniverseIssue,
+        RadarUniverseUnresolved,
+    )
+    from src.streamlit_view import build_unresolved_table
+    from src.universe import CompanyConfig
+
+    company = CompanyConfig(
+        name="Example Company",
+        ticker="EX",
+        symbol="EX",
+        exchange="TEST",
+        currency="EUR",
+    )
+
+    unresolved = (
+        RadarUniverseUnresolved(
+            company=company,
+            issue=(
+                RadarUniverseIssue
+                .FORWARD_EPS_PERIOD_NOT_FOUND
+            ),
+        ),
+    )
+
+    assert build_unresolved_table(unresolved) == [
+        {
+            "Company": "Example Company",
+            "Ticker": "EX",
+            "Exchange": "TEST",
+            "Issue": "forward_eps_period_not_found",
+        }
+    ]
+
+
+def test_build_unresolved_table_handles_empty_input():
+    from src.streamlit_view import build_unresolved_table
+
+    assert build_unresolved_table(()) == []

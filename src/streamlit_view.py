@@ -3,6 +3,7 @@ from typing import Any
 
 from src.presentation import AnalysisPresentation
 from src.radar_presentation import RadarPresentation
+from src.radar_universe import RadarUniverseUnresolved
 
 
 def build_radar_table(
@@ -45,3 +46,17 @@ def build_analysis_row(
             else None
         ),
     }
+
+
+def build_unresolved_table(
+    unresolved: tuple[RadarUniverseUnresolved, ...],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "Company": item.company.name,
+            "Ticker": item.company.ticker,
+            "Exchange": item.company.exchange,
+            "Issue": item.issue.value,
+        }
+        for item in unresolved
+    ]
