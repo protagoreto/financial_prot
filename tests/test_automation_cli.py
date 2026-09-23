@@ -61,6 +61,28 @@ def test_parse_scenario_builds_explicit_scenario():
     assert scenario.terminal_pe == 15.0
 
 
+def test_radar_command_rejects_invalid_scenario():
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "radar",
+                "--as-of-date",
+                "2026-09-22",
+                "--model-version",
+                "model-test",
+                "--data-version",
+                "data-test",
+                "--scenario",
+                "Base",
+                "not-a-number",
+                "0.02",
+                "15.0",
+            ]
+        )
+
+    assert exc.value.code == 2
+
+
 def test_prices_command_returns_zero_when_complete(
     tmp_path: Path,
 ):
@@ -420,10 +442,7 @@ def test_radar_notification_requires_notify_scenario(
     ) as initialize_mock, patch(
         "scripts.automation.run_audited_radar"
     ) as radar_mock:
-        with pytest.raises(
-            ValueError,
-            match="--notify-scenario is required",
-        ):
+        with pytest.raises(SystemExit) as exc:
             main(
                 [
                     "--db-path",
@@ -445,5 +464,6 @@ def test_radar_notification_requires_notify_scenario(
                 ]
             )
 
+    assert exc.value.code == 2
     initialize_mock.assert_not_called()
     radar_mock.assert_not_called()

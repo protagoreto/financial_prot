@@ -286,6 +286,19 @@ def main(
         )
 
     if args.command == "radar":
+        if args.notify is not None and args.notify_scenario is None:
+            parser.error(
+                "--notify-scenario is required when --notify is used."
+            )
+
+        try:
+            scenarios = [
+                _parse_scenario(values)
+                for values in args.scenario
+            ]
+        except argparse.ArgumentTypeError as exc:
+            parser.error(str(exc))
+
         return _run_radar(
             db_path=args.db_path,
             as_of_date=args.as_of_date,
