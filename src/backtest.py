@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 import sqlite3
+from statistics import mean, median
 
 from src.analysis import (
     ValuationAnalysis,
@@ -142,6 +143,45 @@ class BacktestOutcome:
     target_date: date
     price_date: date
     price: float
+
+
+@dataclass(frozen=True)
+class BacktestRealizedObservation:
+    snapshot: BacktestExAnteSnapshot
+    outcome: BacktestOutcome
+    price_return: float
+
+    def __post_init__(self) -> None:
+        if self.snapshot.company_id != self.outcome.company_id:
+            raise ValueError(
+                "snapshot and outcome must belong to "
+                "the same company."
+            )
+
+        if (
+            self.outcome.target_date
+            <= self.snapshot.observation_date
+        ):
+            raise ValueError(
+                "outcome target_date must be after "
+                "observation_date."
+            )
+
+        if self.outcome.price_date < self.outcome.target_date:
+            raise ValueError(
+                "outcome price_date cannot be before "
+                "target_date."
+            )
+
+
+@dataclass(frozen=True)
+class BacktestSummary:
+    observation_count: int
+    realized_count: int
+    positive_count: int
+    mean_price_return: float | None
+    median_price_return: float | None
+    positive_rate: float | None
 
 
 @dataclass(frozen=True)
@@ -397,4 +437,68 @@ def build_backtest_outcome(
         target_date=target_date,
         price_date=price.price_date,
         price=price.close,
+    )
+
+
+def build_backtest_realized_observation(
+    snapshot: BacktestExAnteSnapshot,
+    outcome: BacktestOutcome,
+) -> BacktestRealizedObservation:
+    if snapshot.price <= 0:
+        raise ValueError(
+            "snapshot price must be greater than zero."
+        )
+
+    price_return = (
+        outcome.price / snapshot.price - 1
+    )
+
+    return BacktestRealizedObservation(
+        snapshot=snapshot,
+        outcome=outcome,
+        price_return=price_return,
+    )
+
+
+def summarize_backtest(
+    observations: tuple[
+        BacktestRealizedObservation | None,
+        ...,
+    ],
+) -> BacktestSummary:
+    realized = tuple(
+        observation
+        for observation in observations
+        if observation is not None
+    )
+
+    if not realized:
+        return BacktestSummary(
+            observation_count=len(observations),
+            realized_count=0,
+            positive_count=0,
+            mean_price_return=None,
+            median_price_return=None,
+            positive_rate=None,
+        )
+
+    returns = tuple(
+        observation.price_return
+        for observation in realized
+    )
+
+    positive_count = sum(
+        price_return > 0
+        for price_return in returns
+    )
+
+    return BacktestSummary(
+        observation_count=len(observations),
+        realized_count=len(realized),
+        positive_count=positive_count,
+        mean_price_return=mean(returns),
+        median_price_return=median(returns),
+        positive_rate=(
+            positive_count / len(realized)
+        ),
     )
