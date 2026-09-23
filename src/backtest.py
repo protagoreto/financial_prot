@@ -149,7 +149,6 @@ class BacktestOutcome:
 class BacktestRealizedObservation:
     snapshot: BacktestExAnteSnapshot
     outcome: BacktestOutcome
-    price_return: float
 
     def __post_init__(self) -> None:
         if self.snapshot.company_id != self.outcome.company_id:
@@ -172,6 +171,15 @@ class BacktestRealizedObservation:
                 "outcome price_date cannot be before "
                 "target_date."
             )
+
+        if self.snapshot.price <= 0:
+            raise ValueError(
+                "snapshot price must be greater than zero."
+            )
+
+    @property
+    def price_return(self) -> float:
+        return self.outcome.price / self.snapshot.price - 1
 
 
 @dataclass(frozen=True)
@@ -444,19 +452,9 @@ def build_backtest_realized_observation(
     snapshot: BacktestExAnteSnapshot,
     outcome: BacktestOutcome,
 ) -> BacktestRealizedObservation:
-    if snapshot.price <= 0:
-        raise ValueError(
-            "snapshot price must be greater than zero."
-        )
-
-    price_return = (
-        outcome.price / snapshot.price - 1
-    )
-
     return BacktestRealizedObservation(
         snapshot=snapshot,
         outcome=outcome,
-        price_return=price_return,
     )
 
 

@@ -1218,3 +1218,57 @@ def test_summarize_backtest_empty_series():
     assert result.mean_price_return is None
     assert result.median_price_return is None
     assert result.positive_rate is None
+
+
+def test_backtest_realized_observation_derives_price_return():
+    from src.backtest import (
+        BacktestExAnteSnapshot,
+        BacktestOutcome,
+        BacktestRealizedObservation,
+        BacktestSignal,
+    )
+
+    signal = BacktestSignal(
+        company_id=1,
+        observation_date=date(2020, 1, 15),
+        scenario_name="Base",
+        expected_return=0.12,
+        required_price=55.0,
+        price_margin=0.10,
+        condition=ValueCondition.TARGET_MET,
+    )
+
+    snapshot = BacktestExAnteSnapshot(
+        company_id=1,
+        observation_date=date(2020, 1, 15),
+        fiscal_period_end=date(2020, 12, 31),
+        price=50.0,
+        price_date=date(2020, 1, 15),
+        forward_eps=3.0,
+        estimate_date=date(2020, 1, 10),
+        analyst_count=10,
+        forward_pe=50.0 / 3.0,
+        forward_earnings_yield=3.0 / 50.0,
+        signal=signal,
+    )
+
+    outcome = BacktestOutcome(
+        company_id=1,
+        target_date=date(2021, 1, 15),
+        price_date=date(2021, 1, 15),
+        price=60.0,
+    )
+
+    observation = BacktestRealizedObservation(
+        snapshot=snapshot,
+        outcome=outcome,
+    )
+
+    assert observation.price_return == pytest.approx(0.20)
+
+    with pytest.raises(TypeError):
+        BacktestRealizedObservation(
+            snapshot=snapshot,
+            outcome=outcome,
+            price_return=999.0,
+        )
