@@ -2,9 +2,17 @@ from dataclasses import dataclass
 from datetime import date
 import sqlite3
 
-from src.analysis import ValuationAnalysis
+from src.analysis import (
+    ValuationAnalysis,
+    build_valuation_analysis,
+)
+from src.metrics import FinancialMetric
 from src.radar import RadarEntry, RadarScenario
-from src.repository import get_price_on_or_after
+from src.repository import (
+    get_next_estimate_period_on_or_after,
+    get_price_on_or_after,
+)
+from src.scenarios import ValuationScenario
 from src.value import (
     ScenarioValueAssessment,
     ValueCondition,
@@ -57,6 +65,75 @@ class BacktestExAnteSnapshot:
             raise ValueError(
                 "signal and snapshot must have the same observation_date."
             )
+
+
+@dataclass(frozen=True)
+class BacktestSeriesPoint:
+    observation_date: date
+    snapshot: BacktestExAnteSnapshot | None
+
+    def __post_init__(self) -> None:
+        if (
+            self.snapshot is not None
+            and self.snapshot.observation_date
+            != self.observation_date
+        ):
+            raise ValueError(
+                "snapshot and series point must have "
+                "the same observation_date."
+            )
+
+
+@dataclass(frozen=True)
+class BacktestSeries:
+    company_id: int
+    scenario_name: str
+    points: tuple[BacktestSeriesPoint, ...]
+
+    def __post_init__(self) -> None:
+        if self.company_id <= 0:
+            raise ValueError(
+                "company_id must be greater than zero."
+            )
+
+        if not self.scenario_name.strip():
+            raise ValueError(
+                "scenario_name cannot be blank."
+            )
+
+        previous_date: date | None = None
+
+        for point in self.points:
+            if (
+                previous_date is not None
+                and point.observation_date <= previous_date
+            ):
+                raise ValueError(
+                    "series observation dates must be "
+                    "strictly increasing."
+                )
+
+            if (
+                point.snapshot is not None
+                and point.snapshot.company_id
+                != self.company_id
+            ):
+                raise ValueError(
+                    "series snapshot must belong to "
+                    "the series company."
+                )
+
+            if (
+                point.snapshot is not None
+                and point.snapshot.signal.scenario_name
+                != self.scenario_name
+            ):
+                raise ValueError(
+                    "series snapshot must use "
+                    "the series scenario."
+                )
+
+            previous_date = point.observation_date
 
 
 @dataclass(frozen=True)
@@ -147,6 +224,113 @@ def build_backtest_ex_ante_snapshot(
         forward_pe=snapshot.forward_pe,
         forward_earnings_yield=snapshot.forward_earnings_yield,
         signal=signal,
+    )
+
+
+def build_backtest_series(
+    connection: sqlite3.Connection,
+    company_id: int,
+    observation_dates: tuple[date, ...],
+    scenarios: tuple[ValuationScenario, ...],
+    scenario_name: str,
+    target_return: float = 0.10,
+    years: int = 5,
+) -> BacktestSeries:
+    if company_id <= 0:
+        raise ValueError(
+            "company_id must be greater than zero."
+        )
+
+    if not scenario_name.strip():
+        raise ValueError(
+            "scenario_name cannot be blank."
+        )
+
+    if years <= 0:
+        raise ValueError(
+            "years must be greater than zero."
+        )
+
+    if target_return <= -1:
+        raise ValueError(
+            "target_return must be greater than -1."
+        )
+
+    if any(
+        current <= previous
+        for previous, current in zip(
+            observation_dates,
+            observation_dates[1:],
+        )
+    ):
+        raise ValueError(
+            "observation_dates must be strictly increasing."
+        )
+
+    if not any(
+        scenario.name == scenario_name
+        for scenario in scenarios
+    ):
+        raise ValueError(
+            f"scenario not found: {scenario_name}"
+        )
+
+    points: list[BacktestSeriesPoint] = []
+
+    for observation_date in observation_dates:
+        fiscal_period_end = (
+            get_next_estimate_period_on_or_after(
+                connection=connection,
+                company_id=company_id,
+                metric=FinancialMetric.EPS,
+                as_of_date=observation_date,
+            )
+        )
+
+        if fiscal_period_end is None:
+            points.append(
+                BacktestSeriesPoint(
+                    observation_date=observation_date,
+                    snapshot=None,
+                )
+            )
+            continue
+
+        valuation = build_valuation_analysis(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=observation_date,
+            fiscal_period_end=fiscal_period_end,
+            scenarios=scenarios,
+            target_return=target_return,
+            years=years,
+        )
+
+        if valuation is None:
+            points.append(
+                BacktestSeriesPoint(
+                    observation_date=observation_date,
+                    snapshot=None,
+                )
+            )
+            continue
+
+        snapshot = build_backtest_ex_ante_snapshot(
+            valuation=valuation,
+            scenario_name=scenario_name,
+        )
+
+        points.append(
+            BacktestSeriesPoint(
+                observation_date=observation_date,
+                snapshot=snapshot,
+            )
+        )
+
+    return BacktestSeries(
+        company_id=company_id,
+        scenario_name=scenario_name,
+        points=tuple(points),
     )
 
 

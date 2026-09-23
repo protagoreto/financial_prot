@@ -754,3 +754,286 @@ def test_backtest_ex_ante_snapshot_rejects_signal_date_mismatch():
             forward_earnings_yield=0.05,
             signal=signal,
         )
+
+
+def test_build_backtest_series_is_point_in_time(tmp_path):
+    from src.backtest import build_backtest_series
+    from src.db import connect, initialize_database
+    from src.models import EstimateRecord, PriceRecord
+    from src.repository import (
+        insert_estimate_record,
+        insert_price_record,
+    )
+    from src.scenarios import ValuationScenario
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    scenarios = (
+        ValuationScenario(
+            name="Base",
+            eps_growth=0.08,
+            dividend_yield=0.02,
+            terminal_pe=15.0,
+        ),
+    )
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-15",
+                close=60.0,
+                currency="EUR",
+            ),
+        )
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-02-15",
+                close=66.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.0,
+                currency="EUR",
+                fiscal_period_end="2021-12-31",
+                estimate_date="2021-01-10",
+                analyst_count=10,
+            ),
+        )
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.3,
+                currency="EUR",
+                fiscal_period_end="2021-12-31",
+                estimate_date="2021-02-10",
+                analyst_count=12,
+            ),
+        )
+
+        series = build_backtest_series(
+            connection=connection,
+            company_id=company_id,
+            observation_dates=(
+                date(2021, 1, 15),
+                date(2021, 2, 15),
+            ),
+            scenarios=scenarios,
+            scenario_name="Base",
+        )
+
+    assert series.company_id == company_id
+    assert series.scenario_name == "Base"
+    assert len(series.points) == 2
+
+    first = series.points[0]
+    second = series.points[1]
+
+    assert first.observation_date == date(2021, 1, 15)
+    assert first.snapshot is not None
+    assert first.snapshot.price == 60.0
+    assert first.snapshot.forward_eps == 3.0
+    assert first.snapshot.estimate_date == date(2021, 1, 10)
+
+    assert second.observation_date == date(2021, 2, 15)
+    assert second.snapshot is not None
+    assert second.snapshot.price == 66.0
+    assert second.snapshot.forward_eps == 3.3
+    assert second.snapshot.estimate_date == date(2021, 2, 10)
+
+
+def test_build_backtest_series_preserves_date_without_known_estimate(
+    tmp_path,
+):
+    from src.backtest import build_backtest_series
+    from src.db import connect, initialize_database
+    from src.models import EstimateRecord, PriceRecord
+    from src.repository import (
+        insert_estimate_record,
+        insert_price_record,
+    )
+    from src.scenarios import ValuationScenario
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    scenarios = (
+        ValuationScenario(
+            name="Base",
+            eps_growth=0.08,
+            dividend_yield=0.02,
+            terminal_pe=15.0,
+        ),
+    )
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-15",
+                close=60.0,
+                currency="EUR",
+            ),
+        )
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-02-15",
+                close=66.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=3.3,
+                currency="EUR",
+                fiscal_period_end="2021-12-31",
+                estimate_date="2021-02-10",
+                analyst_count=12,
+            ),
+        )
+
+        series = build_backtest_series(
+            connection=connection,
+            company_id=company_id,
+            observation_dates=(
+                date(2021, 1, 15),
+                date(2021, 2, 15),
+            ),
+            scenarios=scenarios,
+            scenario_name="Base",
+        )
+
+    assert len(series.points) == 2
+    assert series.points[0].snapshot is None
+    assert series.points[1].snapshot is not None
+    assert series.points[1].snapshot.forward_eps == 3.3
+    assert (
+        series.points[1].snapshot.estimate_date
+        == date(2021, 2, 10)
+    )
+
+
+def test_build_backtest_series_does_not_use_future_estimate(
+    tmp_path,
+):
+    from src.backtest import build_backtest_series
+    from src.db import connect, initialize_database
+    from src.models import EstimateRecord, PriceRecord
+    from src.repository import (
+        insert_estimate_record,
+        insert_price_record,
+    )
+    from src.scenarios import ValuationScenario
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-15",
+                close=60.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_estimate_record(
+            connection,
+            EstimateRecord(
+                company_id=company_id,
+                metric="eps",
+                value=4.0,
+                currency="EUR",
+                fiscal_period_end="2021-12-31",
+                estimate_date="2021-01-16",
+                analyst_count=15,
+            ),
+        )
+
+        series = build_backtest_series(
+            connection=connection,
+            company_id=company_id,
+            observation_dates=(date(2021, 1, 15),),
+            scenarios=(
+                ValuationScenario(
+                    name="Base",
+                    eps_growth=0.08,
+                    dividend_yield=0.02,
+                    terminal_pe=15.0,
+                ),
+            ),
+            scenario_name="Base",
+        )
+
+    assert len(series.points) == 1
+    assert series.points[0].snapshot is None
+
+
+def test_build_backtest_series_rejects_non_increasing_dates():
+    from src.backtest import build_backtest_series
+    from src.scenarios import ValuationScenario
+
+    scenarios = (
+        ValuationScenario(
+            name="Base",
+            eps_growth=0.08,
+            dividend_yield=0.02,
+            terminal_pe=15.0,
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="observation_dates must be strictly increasing",
+    ):
+        build_backtest_series(
+            connection=None,
+            company_id=1,
+            observation_dates=(
+                date(2021, 2, 15),
+                date(2021, 1, 15),
+            ),
+            scenarios=scenarios,
+            scenario_name="Base",
+        )
+
+
+def test_build_backtest_series_rejects_unknown_scenario():
+    from src.backtest import build_backtest_series
+    from src.scenarios import ValuationScenario
+
+    scenarios = (
+        ValuationScenario(
+            name="Base",
+            eps_growth=0.08,
+            dividend_yield=0.02,
+            terminal_pe=15.0,
+        ),
+    )
