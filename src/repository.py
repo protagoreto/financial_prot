@@ -861,3 +861,50 @@ def insert_analysis_run(
 
     connection.commit()
     return cursor.lastrowid
+
+
+def get_price_on_or_after(
+    connection: sqlite3.Connection,
+    company_id: int,
+    target_date: date,
+) -> PriceRecord | None:
+    row = connection.execute(
+        """
+        SELECT
+            company_id,
+            price_date,
+            open,
+            high,
+            low,
+            close,
+            adjusted_close,
+            volume,
+            currency,
+            source_id
+        FROM prices
+        WHERE company_id = ?
+        AND price_date >= ?
+        ORDER BY price_date ASC
+        LIMIT 1
+        """,
+        (
+            company_id,
+            target_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return PriceRecord(
+        company_id=row["company_id"],
+        price_date=row["price_date"],
+        open=row["open"],
+        high=row["high"],
+        low=row["low"],
+        close=row["close"],
+        adjusted_close=row["adjusted_close"],
+        volume=row["volume"],
+        currency=row["currency"],
+        source_id=row["source_id"],
+    )

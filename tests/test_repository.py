@@ -1171,3 +1171,107 @@ def test_get_next_estimate_period_rejects_invalid_company_id(
                 metric=FinancialMetric.EPS,
                 as_of_date=date(2026, 9, 22),
             )
+
+
+def test_get_price_on_or_after_exact_date(
+    tmp_path: Path,
+):
+    from src.repository import get_price_on_or_after
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        price = get_price_on_or_after(
+            connection,
+            company_id,
+            date(2026, 9, 18),
+        )
+
+    assert price is not None
+    assert price.price_date == date(2026, 9, 18)
+    assert price.close == 51.0
+
+
+def test_get_price_on_or_after_uses_next_session(
+    tmp_path: Path,
+):
+    from src.repository import get_price_on_or_after
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-21",
+                close=52.0,
+                currency="EUR",
+            ),
+        )
+
+        price = get_price_on_or_after(
+            connection,
+            company_id,
+            date(2026, 9, 19),
+        )
+
+    assert price is not None
+    assert price.price_date == date(2026, 9, 21)
+    assert price.close == 52.0
+
+
+def test_get_price_on_or_after_returns_none_after_history(
+    tmp_path: Path,
+):
+    from src.repository import get_price_on_or_after
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2026-09-18",
+                close=51.0,
+                currency="EUR",
+            ),
+        )
+
+        price = get_price_on_or_after(
+            connection,
+            company_id,
+            date(2026, 9, 19),
+        )
+
+    assert price is None
