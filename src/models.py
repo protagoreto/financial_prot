@@ -439,7 +439,7 @@ class AnalysisRunRecord(BaseModel):
 
         if (
             self.status == AnalysisRunStatus.FAILED
-            and self.error is None
+            and not self.error
         ):
             raise ValueError(
                 "failed analysis run requires error"

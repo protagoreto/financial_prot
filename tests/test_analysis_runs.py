@@ -165,3 +165,29 @@ def test_analysis_run_rejects_negative_execution_time():
             status=AnalysisRunStatus.SUCCESS,
             execution_time=-0.01,
         )
+
+
+def test_failed_analysis_run_rejects_empty_error():
+    with pytest.raises(
+        ValidationError,
+        match="failed analysis run requires error",
+    ):
+        AnalysisRunRecord(
+            model_version="m14.3-test",
+            data_version="data-test",
+            status=AnalysisRunStatus.FAILED,
+            error="",
+        )
+
+
+def test_failed_analysis_run_rejects_whitespace_error():
+    with pytest.raises(
+        ValidationError,
+        match="failed analysis run requires error",
+    ):
+        AnalysisRunRecord(
+            model_version="m14.3-test",
+            data_version="data-test",
+            status=AnalysisRunStatus.FAILED,
+            error="   ",
+        )
