@@ -455,3 +455,302 @@ def test_build_backtest_outcome_rejects_negative_tolerance(
                 target_date=date(2021, 1, 15),
                 max_days_after_target=-1,
             )
+
+
+
+def test_build_backtest_ex_ante_snapshot_preserves_known_data():
+    from src.analysis import ValuationAnalysis
+    from src.backtest import build_backtest_ex_ante_snapshot
+    from src.scenarios import ScenarioResult
+    from src.value import ValueCondition
+    from src.valuation import ForwardValuationSnapshot
+
+    snapshot = ForwardValuationSnapshot(
+        company_id=1,
+        as_of_date=date(2021, 1, 15),
+        price_date=date(2021, 1, 14),
+        price=60.0,
+        fiscal_period_end=date(2021, 12, 31),
+        estimate_date=date(2021, 1, 10),
+        analyst_count=12,
+        forward_eps=3.0,
+        forward_pe=20.0,
+        forward_earnings_yield=0.05,
+    )
+
+    scenario = ScenarioResult(
+        name="Base",
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        expected_return=0.12,
+        required_eps_growth=0.06,
+        required_pe=21.0,
+        required_price=65.0,
+        price_margin=0.0833333333,
+    )
+
+    valuation = ValuationAnalysis(
+        company_id=1,
+        as_of_date=date(2021, 1, 15),
+        target_return=0.10,
+        years=5,
+        snapshot=snapshot,
+        scenarios=(scenario,),
+    )
+
+    result = build_backtest_ex_ante_snapshot(
+        valuation=valuation,
+        scenario_name="Base",
+    )
+
+    assert result.company_id == 1
+    assert result.observation_date == date(2021, 1, 15)
+    assert result.price_date == date(2021, 1, 14)
+    assert result.price == 60.0
+    assert result.fiscal_period_end == date(2021, 12, 31)
+    assert result.estimate_date == date(2021, 1, 10)
+    assert result.analyst_count == 12
+    assert result.forward_eps == 3.0
+    assert result.forward_pe == 20.0
+    assert result.forward_earnings_yield == 0.05
+    assert result.signal.company_id == 1
+    assert result.signal.observation_date == date(2021, 1, 15)
+    assert result.signal.scenario_name == "Base"
+    assert result.signal.expected_return == 0.12
+    assert result.signal.required_price == 65.0
+    assert result.signal.price_margin == 0.0833333333
+    assert result.signal.condition == ValueCondition.TARGET_MET
+
+
+def test_build_backtest_ex_ante_snapshot_preserves_missing_metadata():
+    from src.analysis import ValuationAnalysis
+    from src.backtest import build_backtest_ex_ante_snapshot
+    from src.scenarios import ScenarioResult
+    from src.value import ValueCondition
+    from src.valuation import ForwardValuationSnapshot
+
+    snapshot = ForwardValuationSnapshot(
+        company_id=1,
+        as_of_date=date(2021, 1, 15),
+        price_date=date(2021, 1, 15),
+        price=60.0,
+        fiscal_period_end=date(2021, 12, 31),
+        estimate_date=date(2021, 1, 15),
+        analyst_count=None,
+        forward_eps=3.0,
+        forward_pe=20.0,
+        forward_earnings_yield=0.05,
+    )
+
+    scenario = ScenarioResult(
+        name="Base",
+        eps_growth=0.08,
+        dividend_yield=0.02,
+        terminal_pe=15.0,
+        expected_return=None,
+        required_eps_growth=None,
+        required_pe=None,
+        required_price=None,
+        price_margin=None,
+    )
+
+    valuation = ValuationAnalysis(
+        company_id=1,
+        as_of_date=date(2021, 1, 15),
+        target_return=0.10,
+        years=5,
+        snapshot=snapshot,
+        scenarios=(scenario,),
+    )
+
+    result = build_backtest_ex_ante_snapshot(
+        valuation=valuation,
+        scenario_name="Base",
+    )
+
+    assert result.analyst_count is None
+    assert result.signal.expected_return is None
+    assert result.signal.required_price is None
+    assert result.signal.price_margin is None
+    assert result.signal.condition == ValueCondition.UNKNOWN
+
+
+def test_build_backtest_ex_ante_snapshot_rejects_unknown_scenario():
+    from src.analysis import ValuationAnalysis
+    from src.backtest import build_backtest_ex_ante_snapshot
+    from src.scenarios import ScenarioResult
+    from src.valuation import ForwardValuationSnapshot
+
+    valuation = ValuationAnalysis(
+        company_id=1,
+        as_of_date=date(2021, 1, 15),
+        target_return=0.10,
+        years=5,
+        snapshot=ForwardValuationSnapshot(
+            company_id=1,
+            as_of_date=date(2021, 1, 15),
+            price_date=date(2021, 1, 15),
+            price=60.0,
+            fiscal_period_end=date(2021, 12, 31),
+            estimate_date=date(2021, 1, 10),
+            analyst_count=12,
+            forward_eps=3.0,
+            forward_pe=20.0,
+            forward_earnings_yield=0.05,
+        ),
+        scenarios=(
+            ScenarioResult(
+                name="Base",
+                eps_growth=0.08,
+                dividend_yield=0.02,
+                terminal_pe=15.0,
+                expected_return=0.12,
+                required_eps_growth=0.06,
+                required_pe=21.0,
+                required_price=65.0,
+                price_margin=0.0833333333,
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="scenario not found: Missing",
+    ):
+        build_backtest_ex_ante_snapshot(
+            valuation=valuation,
+            scenario_name="Missing",
+        )
+
+
+def test_backtest_ex_ante_snapshot_rejects_future_price_date():
+    from src.backtest import BacktestExAnteSnapshot, BacktestSignal
+    from src.value import ValueCondition
+
+    signal = BacktestSignal(
+        company_id=1,
+        observation_date=date(2021, 1, 15),
+        scenario_name="Base",
+        expected_return=0.12,
+        required_price=65.0,
+        price_margin=0.08,
+        condition=ValueCondition.TARGET_MET,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="price_date cannot be after observation_date",
+    ):
+        BacktestExAnteSnapshot(
+            company_id=1,
+            observation_date=date(2021, 1, 15),
+            price_date=date(2021, 1, 16),
+            price=60.0,
+            fiscal_period_end=date(2021, 12, 31),
+            estimate_date=date(2021, 1, 10),
+            analyst_count=12,
+            forward_eps=3.0,
+            forward_pe=20.0,
+            forward_earnings_yield=0.05,
+            signal=signal,
+        )
+
+
+def test_backtest_ex_ante_snapshot_rejects_future_estimate_date():
+    from src.backtest import BacktestExAnteSnapshot, BacktestSignal
+    from src.value import ValueCondition
+
+    signal = BacktestSignal(
+        company_id=1,
+        observation_date=date(2021, 1, 15),
+        scenario_name="Base",
+        expected_return=0.12,
+        required_price=65.0,
+        price_margin=0.08,
+        condition=ValueCondition.TARGET_MET,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="estimate_date cannot be after observation_date",
+    ):
+        BacktestExAnteSnapshot(
+            company_id=1,
+            observation_date=date(2021, 1, 15),
+            price_date=date(2021, 1, 15),
+            price=60.0,
+            fiscal_period_end=date(2021, 12, 31),
+            estimate_date=date(2021, 1, 16),
+            analyst_count=12,
+            forward_eps=3.0,
+            forward_pe=20.0,
+            forward_earnings_yield=0.05,
+            signal=signal,
+        )
+
+
+def test_backtest_ex_ante_snapshot_rejects_signal_company_mismatch():
+    from src.backtest import BacktestExAnteSnapshot, BacktestSignal
+    from src.value import ValueCondition
+
+    signal = BacktestSignal(
+        company_id=2,
+        observation_date=date(2021, 1, 15),
+        scenario_name="Base",
+        expected_return=0.12,
+        required_price=65.0,
+        price_margin=0.08,
+        condition=ValueCondition.TARGET_MET,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="signal and snapshot must belong to the same company",
+    ):
+        BacktestExAnteSnapshot(
+            company_id=1,
+            observation_date=date(2021, 1, 15),
+            price_date=date(2021, 1, 15),
+            price=60.0,
+            fiscal_period_end=date(2021, 12, 31),
+            estimate_date=date(2021, 1, 10),
+            analyst_count=12,
+            forward_eps=3.0,
+            forward_pe=20.0,
+            forward_earnings_yield=0.05,
+            signal=signal,
+        )
+
+
+def test_backtest_ex_ante_snapshot_rejects_signal_date_mismatch():
+    from src.backtest import BacktestExAnteSnapshot, BacktestSignal
+    from src.value import ValueCondition
+
+    signal = BacktestSignal(
+        company_id=1,
+        observation_date=date(2021, 1, 14),
+        scenario_name="Base",
+        expected_return=0.12,
+        required_price=65.0,
+        price_margin=0.08,
+        condition=ValueCondition.TARGET_MET,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="signal and snapshot must have the same observation_date",
+    ):
+        BacktestExAnteSnapshot(
+            company_id=1,
+            observation_date=date(2021, 1, 15),
+            price_date=date(2021, 1, 15),
+            price=60.0,
+            fiscal_period_end=date(2021, 12, 31),
+            estimate_date=date(2021, 1, 10),
+            analyst_count=12,
+            forward_eps=3.0,
+            forward_pe=20.0,
+            forward_earnings_yield=0.05,
+            signal=signal,
+        )
