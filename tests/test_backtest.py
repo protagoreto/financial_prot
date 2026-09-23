@@ -13,6 +13,29 @@ from src.radar import RadarEntry, RadarScenario
 from src.value import ValueCondition
 
 
+def _create_company(connection) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO companies (
+            name,
+            ticker,
+            exchange,
+            currency
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            "Test Company",
+            "TEST",
+            "TESTEX",
+            "EUR",
+        ),
+    )
+
+    connection.commit()
+    return cursor.lastrowid
+
+
 def _entry() -> RadarEntry:
     return RadarEntry(
         company_id=1,
@@ -215,3 +238,220 @@ def test_backtest_observation_rejects_price_before_target():
             signal=signal,
             outcome=outcome,
         )
+
+
+def test_build_backtest_outcome_uses_exact_target_date(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+    from src.models import PriceRecord
+    from src.repository import insert_price_record
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-15",
+                close=60.0,
+                currency="EUR",
+            ),
+        )
+
+        outcome = build_backtest_outcome(
+            connection=connection,
+            company_id=company_id,
+            target_date=date(2021, 1, 15),
+        )
+
+    assert outcome is not None
+    assert outcome.company_id == company_id
+    assert outcome.target_date == date(2021, 1, 15)
+    assert outcome.price_date == date(2021, 1, 15)
+    assert outcome.price == pytest.approx(60.0)
+
+
+def test_build_backtest_outcome_uses_next_available_session(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+    from src.models import PriceRecord
+    from src.repository import insert_price_record
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-18",
+                close=61.0,
+                currency="EUR",
+            ),
+        )
+
+        outcome = build_backtest_outcome(
+            connection=connection,
+            company_id=company_id,
+            target_date=date(2021, 1, 16),
+        )
+
+    assert outcome is not None
+    assert outcome.price_date == date(2021, 1, 18)
+    assert outcome.price == pytest.approx(61.0)
+
+
+def test_build_backtest_outcome_rejects_price_beyond_tolerance(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+    from src.models import PriceRecord
+    from src.repository import insert_price_record
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-25",
+                close=62.0,
+                currency="EUR",
+            ),
+        )
+
+        outcome = build_backtest_outcome(
+            connection=connection,
+            company_id=company_id,
+            target_date=date(2021, 1, 15),
+            max_days_after_target=7,
+        )
+
+    assert outcome is None
+
+
+def test_build_backtest_outcome_returns_none_without_future_price(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+    from src.models import PriceRecord
+    from src.repository import insert_price_record
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-14",
+                close=59.0,
+                currency="EUR",
+            ),
+        )
+
+        outcome = build_backtest_outcome(
+            connection=connection,
+            company_id=company_id,
+            target_date=date(2021, 1, 15),
+        )
+
+    assert outcome is None
+
+
+def test_build_backtest_outcome_accepts_tolerance_boundary(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+    from src.models import PriceRecord
+    from src.repository import insert_price_record
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = _create_company(connection)
+
+        insert_price_record(
+            connection,
+            PriceRecord(
+                company_id=company_id,
+                price_date="2021-01-22",
+                close=63.0,
+                currency="EUR",
+            ),
+        )
+
+        outcome = build_backtest_outcome(
+            connection=connection,
+            company_id=company_id,
+            target_date=date(2021, 1, 15),
+            max_days_after_target=7,
+        )
+
+    assert outcome is not None
+    assert outcome.price_date == date(2021, 1, 22)
+
+
+def test_build_backtest_outcome_rejects_invalid_company_id(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        with pytest.raises(
+            ValueError,
+            match="company_id must be greater than zero",
+        ):
+            build_backtest_outcome(
+                connection=connection,
+                company_id=0,
+                target_date=date(2021, 1, 15),
+            )
+
+
+def test_build_backtest_outcome_rejects_negative_tolerance(
+    tmp_path,
+):
+    from src.backtest import build_backtest_outcome
+    from src.db import connect, initialize_database
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        with pytest.raises(
+            ValueError,
+            match="cannot be negative",
+        ):
+            build_backtest_outcome(
+                connection=connection,
+                company_id=1,
+                target_date=date(2021, 1, 15),
+                max_days_after_target=-1,
+            )

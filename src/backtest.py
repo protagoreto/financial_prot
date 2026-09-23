@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import sqlite3
 from datetime import date
 
 from src.radar import RadarEntry, RadarScenario
+from src.repository import get_price_on_or_after
 from src.value import ValueCondition
 
 
@@ -79,4 +81,44 @@ def _get_scenario(
 
     raise ValueError(
         f"scenario not found: {scenario_name}"
+    )
+
+
+def build_backtest_outcome(
+    connection: sqlite3.Connection,
+    company_id: int,
+    target_date: date,
+    max_days_after_target: int = 7,
+) -> BacktestOutcome | None:
+    if company_id <= 0:
+        raise ValueError(
+            "company_id must be greater than zero."
+        )
+
+    if max_days_after_target < 0:
+        raise ValueError(
+            "max_days_after_target cannot be negative."
+        )
+
+    price = get_price_on_or_after(
+        connection=connection,
+        company_id=company_id,
+        target_date=target_date,
+    )
+
+    if price is None:
+        return None
+
+    days_after_target = (
+        price.price_date - target_date
+    ).days
+
+    if days_after_target > max_days_after_target:
+        return None
+
+    return BacktestOutcome(
+        company_id=company_id,
+        target_date=target_date,
+        price_date=price.price_date,
+        price=price.close,
     )
