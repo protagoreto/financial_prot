@@ -135,6 +135,20 @@ def test_build_backtest_signal_rejects_unknown_scenario():
         )
 
 
+def test_backtest_outcome_rejects_non_positive_price():
+    for price in (0.0, -1.0):
+        with pytest.raises(
+            ValueError,
+            match="outcome price must be greater than zero",
+        ):
+            BacktestOutcome(
+                company_id=1,
+                target_date=date(2021, 1, 15),
+                price_date=date(2021, 1, 15),
+                price=price,
+            )
+
+
 def test_backtest_observation_accepts_future_outcome():
     signal = build_backtest_signal(
         entry=_entry(),

@@ -251,7 +251,10 @@ def run_audited_radar(
                 data_version=data_version,
                 status=AnalysisRunStatus.FAILED,
                 execution_time=execution_time,
-                error=str(exc),
+                error=(
+                    str(exc).strip()
+                    or type(exc).__name__
+                ),
             ),
         )
 

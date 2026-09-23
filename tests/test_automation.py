@@ -198,3 +198,58 @@ def test_radar_run_config_rejects_invalid_terminal_pe():
         ).is_valid()
         is False
     )
+
+
+def test_audited_radar_records_exception_type_for_empty_error(
+    tmp_path,
+):
+    from datetime import date
+    import sqlite3
+    from unittest.mock import patch
+
+    import pytest
+
+    from src.automation import (
+        RadarRunConfig,
+        run_audited_radar,
+    )
+    from src.db import initialize_database
+
+    db_path = tmp_path / "empty-error.sqlite"
+    initialize_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+
+    try:
+        config = RadarRunConfig(
+            universe=(),
+            scenarios=(),
+        )
+
+        with patch(
+            "src.automation.run_automated_radar",
+            side_effect=Exception(),
+        ):
+            with pytest.raises(Exception):
+                run_audited_radar(
+                    connection=connection,
+                    config=config,
+                    as_of_date=date(2026, 9, 23),
+                    model_version="m14.5-test",
+                    data_version="data-test",
+                )
+
+        row = connection.execute(
+            """
+            SELECT status, error
+            FROM analysis_runs
+            ORDER BY run_id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        assert row is not None
+        assert row[0] == "failed"
+        assert row[1] == "Exception"
+    finally:
+        connection.close()

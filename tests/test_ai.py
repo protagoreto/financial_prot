@@ -216,6 +216,42 @@ def test_ai_analysis_narrative_rejects_blank_limitation():
     assert not narrative.is_valid()
 
 
+def test_ai_analysis_narrative_rejects_non_string_text():
+    from src.ai import AIAnalysisNarrative
+
+    narrative = AIAnalysisNarrative(
+        summary=123,  # type: ignore[arg-type]
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=(),
+    )
+
+    assert not narrative.is_valid()
+
+
+def test_ai_analysis_narrative_rejects_invalid_limitations():
+    from src.ai import AIAnalysisNarrative
+
+    wrong_container = AIAnalysisNarrative(
+        summary="Summary.",
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=["Limitation."],  # type: ignore[arg-type]
+    )
+    wrong_item = AIAnalysisNarrative(
+        summary="Summary.",
+        quality_commentary="Quality commentary.",
+        risk_commentary="Risk commentary.",
+        valuation_commentary="Valuation commentary.",
+        limitations=(123,),  # type: ignore[arg-type]
+    )
+
+    assert not wrong_container.is_valid()
+    assert not wrong_item.is_valid()
+
+
 def test_ai_analysis_narrative_is_frozen():
     from src.ai import AIAnalysisNarrative
 

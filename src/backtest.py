@@ -144,6 +144,12 @@ class BacktestOutcome:
     price_date: date
     price: float
 
+    def __post_init__(self) -> None:
+        if self.price <= 0:
+            raise ValueError(
+                "outcome price must be greater than zero."
+            )
+
 
 @dataclass(frozen=True)
 class BacktestRealizedObservation:

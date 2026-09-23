@@ -85,13 +85,18 @@ class AIAnalysisNarrative:
         )
 
         if any(
-            not value.strip()
+            not isinstance(value, str)
+            or not value.strip()
             for value in required_text
         ):
             return False
 
+        if not isinstance(self.limitations, tuple):
+            return False
+
         if any(
-            not limitation.strip()
+            not isinstance(limitation, str)
+            or not limitation.strip()
             for limitation in self.limitations
         ):
             return False
