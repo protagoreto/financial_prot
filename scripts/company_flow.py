@@ -9,6 +9,9 @@ from src.application_flow import (
 from src.company_discovery import discover_companies
 from src.config import settings
 from src.db import connect
+from src.providers.sec_publication_dates import (
+    SecPublicationDateProvider,
+)
 from src.providers.yahoo import YahooPriceProvider
 from src.providers.yahoo_discovery import (
     YahooCompanyDiscoveryProvider,
@@ -354,6 +357,12 @@ def main(argv: list[str] | None = None) -> int:
 
         as_of_date = args.as_of_date or args.end_date
 
+        publication_date_provider = (
+            SecPublicationDateProvider(settings.sec_user_agent)
+            if settings.sec_user_agent
+            else None
+        )
+
         with connect(args.db_path) as connection:
             result = run_application_flow(
                 connection=connection,
@@ -373,6 +382,9 @@ def main(argv: list[str] | None = None) -> int:
                 estimate_date=args.estimate_date,
                 target_return=args.target_return,
                 years=args.years,
+                publication_date_provider=(
+                    publication_date_provider
+                ),
             )
     except ValueError as exc:
         parser.error(str(exc))

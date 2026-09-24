@@ -9,6 +9,7 @@ from src.ingestion import (
     ingest_financials,
     ingest_forward_eps_estimate,
     ingest_prices_incremental,
+    ingest_publication_dates,
 )
 from src.repository import get_company_by_id
 
@@ -91,6 +92,7 @@ def onboard_company(
     initial_price_date: date,
     end_date: date,
     estimate_date: date | None = None,
+    publication_date_provider=None,
 ) -> CompanyOnboardingResult:
     if company_id <= 0:
         raise ValueError("company_id must be positive")
@@ -168,6 +170,23 @@ def onboard_company(
                 symbol=symbol,
                 currency=currency,
             ),
+        ),
+        (
+            _run_step(
+                "publication_dates",
+                lambda: ingest_publication_dates(
+                    connection=connection,
+                    provider=publication_date_provider,
+                    company_id=company_id,
+                    symbol=symbol,
+                ),
+            )
+            if publication_date_provider is not None
+            else OnboardingStepResult(
+                name="publication_dates",
+                status=OnboardingStatus.UNAVAILABLE,
+                detail="Publication date provider not configured",
+            )
         ),
     )
 

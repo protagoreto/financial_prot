@@ -5,6 +5,9 @@ from pathlib import Path
 from src.config import settings
 from src.db import connect
 from src.onboarding import onboard_company
+from src.providers.sec_publication_dates import (
+    SecPublicationDateProvider,
+)
 from src.providers.yahoo import YahooPriceProvider
 from src.providers.yahoo_dividends import YahooDividendProvider
 from src.providers.yahoo_estimates import YahooEstimateProvider
@@ -139,6 +142,12 @@ def main(
             connection,
         )
 
+        publication_date_provider = (
+            SecPublicationDateProvider(settings.sec_user_agent)
+            if settings.sec_user_agent
+            else None
+        )
+
         try:
             result = onboard_company(
                 connection=connection,
@@ -152,6 +161,9 @@ def main(
                 initial_price_date=args.initial_price_date,
                 end_date=args.end_date,
                 estimate_date=args.estimate_date,
+                publication_date_provider=(
+                    publication_date_provider
+                ),
             )
         except ValueError as exc:
             parser.error(str(exc))

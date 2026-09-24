@@ -53,6 +53,7 @@ def run_application_flow(
     estimate_date: date | None = None,
     target_return: float = 0.10,
     years: int = 5,
+    publication_date_provider=None,
 ) -> ApplicationFlowResult:
     if initial_price_date > end_date:
         raise ValueError(
@@ -96,6 +97,7 @@ def run_application_flow(
         initial_price_date=initial_price_date,
         end_date=end_date,
         estimate_date=estimate_date,
+        publication_date_provider=publication_date_provider,
     )
 
     coverage = build_company_coverage(

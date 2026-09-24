@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -257,3 +258,115 @@ def test_cli_returns_nonzero_for_failed_step(
     )
 
     assert exit_code == 1
+
+
+def test_onboard_cli_passes_sec_publication_provider(
+    tmp_path: Path,
+    monkeypatch,
+):
+    db_path, company_id = _database(tmp_path)
+    captured = {}
+
+    class FakeSecProvider:
+        def __init__(self, user_agent):
+            self.user_agent = user_agent
+            captured["constructed_provider"] = self
+            captured["user_agent"] = user_agent
+
+    def fake_onboard_company(**kwargs):
+        captured["onboard_kwargs"] = kwargs
+        return _result(company_id)
+
+    monkeypatch.setattr(
+        cli,
+        "settings",
+        replace(
+            cli.settings,
+            sec_user_agent="financial_prot test@example.com",
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "SecPublicationDateProvider",
+        FakeSecProvider,
+    )
+    monkeypatch.setattr(
+        cli,
+        "onboard_company",
+        fake_onboard_company,
+    )
+
+    exit_code = cli.main(
+        [
+            "--company-id",
+            str(company_id),
+            "--initial-price-date",
+            "2020-01-01",
+            "--end-date",
+            "2026-09-24",
+            "--db-path",
+            str(db_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["user_agent"] == (
+        "financial_prot test@example.com"
+    )
+    assert (
+        captured["onboard_kwargs"]["publication_date_provider"]
+        is captured["constructed_provider"]
+    )
+
+
+def test_onboard_cli_passes_no_publication_provider_when_unconfigured(
+    tmp_path: Path,
+    monkeypatch,
+):
+    db_path, company_id = _database(tmp_path)
+    captured = {}
+
+    class UnexpectedSecProvider:
+        def __init__(self, user_agent):
+            raise AssertionError(
+                "SEC provider must not be constructed"
+            )
+
+    def fake_onboard_company(**kwargs):
+        captured.update(kwargs)
+        return _result(company_id)
+
+    monkeypatch.setattr(
+        cli,
+        "settings",
+        replace(
+            cli.settings,
+            sec_user_agent=None,
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "SecPublicationDateProvider",
+        UnexpectedSecProvider,
+    )
+    monkeypatch.setattr(
+        cli,
+        "onboard_company",
+        fake_onboard_company,
+    )
+
+    exit_code = cli.main(
+        [
+            "--company-id",
+            str(company_id),
+            "--initial-price-date",
+            "2020-01-01",
+            "--end-date",
+            "2026-09-24",
+            "--db-path",
+            str(db_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["publication_date_provider"] is None

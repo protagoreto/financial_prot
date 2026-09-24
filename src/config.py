@@ -40,6 +40,11 @@ class Settings:
             "local",
         )
     )
+    sec_user_agent: str | None = field(
+        default_factory=lambda: _env_optional_string(
+            "VIST_SEC_USER_AGENT"
+        )
+    )
     telegram_bot_token: str | None = field(
         default_factory=lambda: _env_optional_string(
             "VIST_TELEGRAM_BOT_TOKEN"
