@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.config import settings
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import (
     get_or_create_company,
     ingest_prices_incremental,
@@ -24,7 +24,7 @@ def run(
     provider = YahooPriceProvider()
     results: dict[str, int] = {}
 
-    with connect(settings.db_path) as connection:
+    with managed_connection(settings.db_path) as connection:
         for company in IBEX_UNIVERSE:
             company_id = get_or_create_company(
                 connection=connection,

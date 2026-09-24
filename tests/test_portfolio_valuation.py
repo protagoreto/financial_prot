@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import (
     PortfolioTransaction,
     PriceRecord,
@@ -99,7 +99,7 @@ def test_position_uses_price_on_or_before_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -152,7 +152,7 @@ def test_unrealized_profit_loss_and_return(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -199,7 +199,7 @@ def test_cash_reflects_buy_cash_flow(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -245,7 +245,7 @@ def test_buy_fees_reduce_cash(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -292,7 +292,7 @@ def test_sell_increases_cash(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -351,7 +351,7 @@ def test_dividend_increases_cash_net_of_costs(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -390,7 +390,7 @@ def test_standalone_fee_and_tax_reduce_cash(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         add_transaction(
             connection,
             "cash-1",
@@ -431,7 +431,7 @@ def test_weight_includes_cash(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -476,7 +476,7 @@ def test_two_positions_have_correct_weights(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_1 = create_company(
             connection,
             name="Company One",
@@ -549,7 +549,7 @@ def test_missing_price_is_rejected(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -578,7 +578,7 @@ def test_future_price_is_not_used(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -614,7 +614,7 @@ def test_price_currency_must_match_position_currency(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -652,7 +652,7 @@ def test_currencies_are_not_combined(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_eur = create_company(
             connection,
             name="EUR Company",
@@ -750,7 +750,7 @@ def test_closed_position_not_in_valued_positions(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -796,7 +796,7 @@ def test_as_of_date_excludes_future_cash_flow(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         add_transaction(
             connection,
             "cash-1",
@@ -943,7 +943,7 @@ def test_currency_summary_value_identity(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(
             connection,
             ticker="IDENTITY",
@@ -999,7 +999,7 @@ def test_position_weights_use_total_value_including_cash(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(
             connection,
             ticker="WEIGHT",

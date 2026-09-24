@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from scripts.universe import main
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 
 
 def _catalog(path: Path) -> Path:
@@ -60,7 +60,7 @@ def test_cli_sync(
     assert "mode: synchronized" in output
     assert "created: 1" in output
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         count = connection.execute(
             "SELECT COUNT(*) AS count FROM companies"
         ).fetchone()["count"]

@@ -9,7 +9,7 @@ from src.automation import (
     update_prices,
 )
 from src.config import settings
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.message_runtime import get_message_runtime
 from src.providers.yahoo import YahooPriceProvider
 from src.radar_message_service import send_radar_report_row
@@ -170,7 +170,7 @@ def _run_prices(
 
     provider = YahooPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,
@@ -232,7 +232,7 @@ def _run_radar(
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = run_audited_radar(
             connection=connection,
             config=config,

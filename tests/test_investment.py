@@ -5,7 +5,7 @@ from src.assessment import (
     AssessmentLevel,
     RiskLevel,
 )
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.investment import (
     AnalysisAvailability,
     build_investment_analysis,
@@ -207,7 +207,7 @@ def test_complete_investment_analysis(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_fundamentals(
@@ -261,7 +261,7 @@ def test_fundamentals_only_without_estimate(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_fundamentals(
@@ -306,7 +306,7 @@ def test_valuation_only_without_fundamentals(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_valuation_data(
@@ -341,7 +341,7 @@ def test_insufficient_without_either_branch(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         analysis = build_investment_analysis(
@@ -371,7 +371,7 @@ def test_unpublished_fundamentals_do_not_leak(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_fundamentals(
@@ -404,7 +404,7 @@ def test_complete_analysis_contains_value_assessment(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_fundamentals(
@@ -443,7 +443,7 @@ def test_missing_valuation_means_unknown_value(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_fundamentals(

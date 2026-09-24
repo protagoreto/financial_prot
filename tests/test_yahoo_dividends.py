@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import ingest_dividends
 from src.models import DividendRecord
 from src.providers.yahoo_dividends import (
@@ -120,7 +120,7 @@ def test_insert_dividend_record_is_idempotent(
     db_path = tmp_path / "dividends.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         _insert_company(connection)
 
         record = DividendRecord(
@@ -166,7 +166,7 @@ def test_dividend_ingestion_is_idempotent(
 
     provider = YahooDividendProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         _insert_company(connection)
 
         first = ingest_dividends(

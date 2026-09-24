@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import PortfolioTransaction, PriceRecord
 from src.portfolio import build_portfolio_performance_snapshot
 from src.repository import (
@@ -93,7 +93,7 @@ def test_dividend_income_is_reported_separately(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -125,7 +125,7 @@ def test_dividend_tax_and_fee_reduce_net_dividend(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -159,7 +159,7 @@ def test_unrealized_profit_is_in_economic_profit(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -198,7 +198,7 @@ def test_realized_profit_survives_closed_position(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -239,7 +239,7 @@ def test_realized_unrealized_and_dividends_are_combined(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -306,7 +306,7 @@ def test_buy_fee_is_not_double_counted(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -347,7 +347,7 @@ def test_sell_fee_is_not_double_counted(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -390,7 +390,7 @@ def test_cash_deposit_is_not_profit(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         add_transaction(
             connection,
             "cash-1",
@@ -413,7 +413,7 @@ def test_future_dividend_is_excluded(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(
@@ -451,7 +451,7 @@ def test_currencies_are_kept_separate(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_eur = create_company(
             connection,
             name="EUR Company",
@@ -511,7 +511,7 @@ def test_closed_position_profit_and_dividend_remain_visible(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         add_transaction(

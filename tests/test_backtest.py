@@ -265,7 +265,7 @@ def test_build_backtest_outcome_uses_exact_target_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -302,7 +302,7 @@ def test_build_backtest_outcome_uses_next_available_session(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -337,7 +337,7 @@ def test_build_backtest_outcome_rejects_price_beyond_tolerance(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -371,7 +371,7 @@ def test_build_backtest_outcome_returns_none_without_future_price(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -404,7 +404,7 @@ def test_build_backtest_outcome_accepts_tolerance_boundary(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -437,7 +437,7 @@ def test_build_backtest_outcome_rejects_invalid_company_id(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             ValueError,
             match="company_id must be greater than zero",
@@ -458,7 +458,7 @@ def test_build_backtest_outcome_rejects_negative_tolerance(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             ValueError,
             match="cannot be negative",
@@ -792,7 +792,7 @@ def test_build_backtest_series_is_point_in_time(tmp_path):
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -894,7 +894,7 @@ def test_build_backtest_series_preserves_date_without_known_estimate(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(
@@ -965,7 +965,7 @@ def test_build_backtest_series_does_not_use_future_estimate(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(

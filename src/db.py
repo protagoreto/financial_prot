@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import sqlite3
 from pathlib import Path
 
@@ -307,6 +308,8 @@ ON portfolio_transactions(
 def connect(db_path: Path) -> sqlite3.Connection:
     """
     Open a SQLite connection and ensure the parent directory exists.
+
+    The caller owns the returned connection and must close it.
     """
 
     db_path.parent.mkdir(
@@ -324,12 +327,27 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return connection
 
 
+@contextmanager
+def managed_connection(db_path: Path):
+    """
+    Open a SQLite connection and always close it on context exit.
+    """
+
+    connection = connect(db_path)
+
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
+
+
 def initialize_database(db_path: Path) -> None:
     """
     Create the database schema if it does not already exist.
     """
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.executescript(SCHEMA)
 
         company_columns = {

@@ -10,7 +10,7 @@ from src.automation import (
     run_audited_radar,
     run_automated_radar,
 )
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.radar import RadarSnapshot
 from src.radar_service import RadarRun
 from src.scenarios import ValuationScenario
@@ -168,7 +168,7 @@ def test_run_audited_radar_persists_success(
 
     radar_run = _radar_run()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with patch(
             "src.automation.run_automated_radar",
             return_value=radar_run,
@@ -203,7 +203,7 @@ def test_run_audited_radar_persists_failure_and_reraises(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with patch(
             "src.automation.run_automated_radar",
             side_effect=RuntimeError("Radar failed."),
@@ -254,7 +254,7 @@ def test_run_audited_radar_treats_unresolved_as_success(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with patch(
             "src.automation.run_automated_radar",
             return_value=radar_run,
@@ -287,7 +287,7 @@ def test_run_audited_radar_appends_audit_record_per_execution(
 
     radar_run = _radar_run()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with patch(
             "src.automation.run_automated_radar",
             return_value=radar_run,

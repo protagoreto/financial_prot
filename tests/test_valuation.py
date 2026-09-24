@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.repository import (
     insert_financial_record,
@@ -49,7 +49,7 @@ def test_build_valuation_snapshot(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -99,7 +99,7 @@ def test_snapshot_does_not_use_unpublished_eps(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -141,7 +141,7 @@ def test_snapshot_preserves_negative_eps(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -185,7 +185,7 @@ def test_build_forward_valuation_snapshot(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -233,7 +233,7 @@ def test_forward_snapshot_does_not_use_future_revision(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -289,7 +289,7 @@ def test_forward_snapshot_returns_none_without_known_estimate(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -329,7 +329,7 @@ def test_trailing_snapshot_rejects_unpublished_financial(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(

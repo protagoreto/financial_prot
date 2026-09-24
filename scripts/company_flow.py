@@ -8,7 +8,7 @@ from src.application_flow import (
 )
 from src.company_discovery import discover_companies
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.providers.sec_publication_dates import (
     SecPublicationDateProvider,
 )
@@ -363,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
             else None
         )
 
-        with connect(args.db_path) as connection:
+        with managed_connection(args.db_path) as connection:
             result = run_application_flow(
                 connection=connection,
                 candidate=candidate,

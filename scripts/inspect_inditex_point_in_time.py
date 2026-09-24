@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.metrics import FinancialMetric, PeriodType
 from src.repository import (
     get_latest_financial_on_or_before,
@@ -15,7 +15,7 @@ DATES = [
 
 
 def main() -> None:
-    with connect(settings.db_path) as connection:
+    with managed_connection(settings.db_path) as connection:
         company = connection.execute(
             """
             SELECT company_id

@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import ingest_publication_dates
 from src.metrics import PeriodType
 from src.providers.publication_dates_base import (
@@ -139,7 +139,7 @@ def test_ingest_publication_dates_persists_provenance(
     db_path = tmp_path / "publication_dates.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         inserted = ingest_publication_dates(
@@ -191,7 +191,7 @@ def test_ingest_publication_dates_is_idempotent(tmp_path):
     db_path = tmp_path / "publication_dates.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
         provider = StubPublicationDateProvider()
 
@@ -240,7 +240,7 @@ def test_empty_provider_creates_no_source(tmp_path):
     db_path = tmp_path / "publication_dates.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         inserted = ingest_publication_dates(
@@ -265,7 +265,7 @@ def test_provider_company_mismatch_is_rejected(tmp_path):
     db_path = tmp_path / "publication_dates.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         with pytest.raises(

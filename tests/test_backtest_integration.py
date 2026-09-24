@@ -8,7 +8,7 @@ from src.backtest import (
     build_backtest_series,
     summarize_backtest,
 )
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import EstimateRecord, PriceRecord
 from src.repository import (
     insert_estimate_record,
@@ -57,7 +57,7 @@ def test_backtest_end_to_end_is_point_in_time(tmp_path):
         date(2020, 2, 15),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _create_company(connection)
 
         insert_price_record(

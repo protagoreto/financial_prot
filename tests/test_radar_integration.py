@@ -1,7 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.investment import AnalysisAvailability
 from src.metrics import (
     FinancialMetric,
@@ -196,7 +196,7 @@ def test_run_radar_end_to_end_preserves_resolved_and_unresolved(
         currency="EUR",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _insert_company(
             connection,
             resolved,

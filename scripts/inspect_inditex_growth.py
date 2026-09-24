@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.fundamentals import (
     build_fundamental_growth_snapshot,
 )
@@ -46,7 +46,7 @@ def main() -> None:
         date(2026, 3, 11),
     )
 
-    with connect(settings.db_path) as connection:
+    with managed_connection(settings.db_path) as connection:
         company_id = get_inditex_company_id(
             connection
         )

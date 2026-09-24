@@ -7,7 +7,7 @@ from src.company_discovery import (
     discover_companies,
     register_company_candidate,
 )
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.providers.discovery_base import (
     CompanyCandidate,
     CompanyDiscoveryProvider,
@@ -109,7 +109,7 @@ def test_register_company_candidate_is_idempotent(
 
     candidate = _candidate()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first_id, first = register_company_candidate(
             connection,
             candidate,
@@ -161,7 +161,7 @@ def test_registration_enriches_missing_country(
         country="  Spain  ",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first_id, first = register_company_candidate(
             connection,
             without_country,
@@ -196,7 +196,7 @@ def test_registration_rejects_country_conflict(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id, _ = register_company_candidate(
             connection,
             _candidate(),
@@ -240,7 +240,7 @@ def test_registration_country_match_is_case_insensitive(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first_id, _ = register_company_candidate(
             connection,
             _candidate(),

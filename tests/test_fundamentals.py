@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.fundamentals import (
     build_fundamental_growth_snapshot,
     build_fundamental_snapshot,
@@ -68,7 +68,7 @@ def test_build_fundamental_snapshot(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         records = [
@@ -179,7 +179,7 @@ def test_fundamental_snapshot_rejects_mixed_periods(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         metrics = [
@@ -268,7 +268,7 @@ def test_fundamental_snapshot_rejects_unpublished_period(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         records = [
@@ -390,7 +390,7 @@ def test_build_fundamental_growth_snapshot(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_growth_period(
@@ -493,7 +493,7 @@ def test_growth_snapshot_respects_point_in_time(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         previous_values = {
@@ -563,7 +563,7 @@ def test_growth_snapshot_rejects_incomplete_current_period(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         previous_values = {
@@ -618,7 +618,7 @@ def test_growth_snapshot_skips_incomplete_previous_period(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         complete_2023 = {

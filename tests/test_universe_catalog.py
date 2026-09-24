@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.universe_catalog import (
     load_universe_catalog,
     sync_universe_catalog,
@@ -116,7 +116,7 @@ def test_sync_is_idempotent(
 
     companies = load_universe_catalog(catalog)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first = sync_universe_catalog(
             connection,
             companies,
@@ -145,7 +145,7 @@ def test_sync_matches_identity_case_insensitively(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.execute(
             """
             INSERT INTO companies (
@@ -174,7 +174,7 @@ def test_sync_matches_identity_case_insensitively(
 
     companies = load_universe_catalog(catalog)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = sync_universe_catalog(
             connection,
             companies,
@@ -207,7 +207,7 @@ def test_sync_universe_catalog_persists_symbol(tmp_path):
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = sync_universe_catalog(
             connection,
             companies,
@@ -244,7 +244,7 @@ def test_sync_universe_catalog_backfills_symbol(tmp_path):
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.execute(
             """
             INSERT INTO companies (
@@ -304,7 +304,7 @@ def test_sync_universe_catalog_rejects_symbol_conflict(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.execute(
             """
             INSERT INTO companies (

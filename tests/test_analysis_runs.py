@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import (
     AnalysisRunRecord,
     AnalysisRunStatus,
@@ -24,7 +24,7 @@ def test_insert_successful_analysis_run(
         execution_time=1.25,
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         run_id = insert_analysis_run(
             connection=connection,
             record=record,
@@ -63,7 +63,7 @@ def test_insert_failed_analysis_run(
         error="Radar execution failed.",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         run_id = insert_analysis_run(
             connection=connection,
             record=record,
@@ -90,7 +90,7 @@ def test_analysis_run_can_reference_company(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = connection.execute(
             """
             INSERT INTO companies (

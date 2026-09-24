@@ -3,7 +3,7 @@ from datetime import date
 from pathlib import Path
 
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.onboarding import onboard_company
 from src.providers.sec_publication_dates import (
     SecPublicationDateProvider,
@@ -135,7 +135,7 @@ def main(
             "--initial-price-date cannot be after --end-date."
         )
 
-    with connect(args.db_path) as connection:
+    with managed_connection(args.db_path) as connection:
         company_id = _resolve_company_id(
             parser,
             args,

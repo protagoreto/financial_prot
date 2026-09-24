@@ -6,7 +6,7 @@ from src.automation import (
     RadarRunConfig,
     run_audited_radar,
 )
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.radar_presentation import (
     RadarPresentation,
     build_radar_presentation,
@@ -44,7 +44,7 @@ def run_dashboard_radar(
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = run_audited_radar(
             connection=connection,
             config=config,

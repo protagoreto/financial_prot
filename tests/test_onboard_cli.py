@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import scripts.onboard as cli
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import get_or_create_company
 from src.onboarding import (
     CompanyOnboardingResult,
@@ -18,7 +18,7 @@ def _database(tmp_path: Path) -> tuple[Path, int]:
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Test Company",

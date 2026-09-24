@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 from src.automation import update_prices
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import PriceRecord
 from src.providers.base import PriceProvider
 from src.universe import CompanyConfig
@@ -81,7 +81,7 @@ def test_update_prices_processes_universe_in_order(
         symbol="SECOND.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,
@@ -128,7 +128,7 @@ def test_update_prices_creates_companies_and_prices(
         symbol="TEST.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,
@@ -190,7 +190,7 @@ def test_update_prices_reuses_existing_company(
         symbol="TEST.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first = update_prices(
             connection=connection,
             provider=provider,
@@ -238,7 +238,7 @@ def test_update_prices_accepts_empty_universe(
 
     provider = RecordingPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,
@@ -266,7 +266,7 @@ def test_update_prices_rejects_inverted_date_range(
         symbol="TEST.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         try:
             update_prices(
                 connection=connection,
@@ -349,7 +349,7 @@ def test_update_prices_continues_after_company_failure(
         failing_symbol="FAIL.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,
@@ -406,7 +406,7 @@ def test_update_prices_is_complete_when_all_companies_succeed(
         symbol="TEST.MC",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = update_prices(
             connection=connection,
             provider=provider,

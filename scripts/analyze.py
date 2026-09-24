@@ -5,7 +5,7 @@ import sqlite3
 
 from src.config import settings
 from src.coverage import build_company_coverage
-from src.db import connect
+from src.db import connect, managed_connection
 from src.investment import build_investment_analysis
 from src.scenarios import ValuationScenario
 
@@ -347,7 +347,7 @@ def run_analysis(
             "At least one scenario is required."
         )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company = _get_company(
             connection=connection,
             ticker=ticker,

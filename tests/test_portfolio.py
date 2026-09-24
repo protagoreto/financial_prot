@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import PortfolioTransaction
 from src.portfolio import (
     PortfolioCalculationError,
@@ -395,7 +395,7 @@ def test_repository_snapshot_respects_as_of_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_portfolio_transaction(

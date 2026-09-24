@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import get_or_create_company
 from src.metrics import (
     FinancialMetric,
@@ -157,7 +157,7 @@ def test_onboard_company_runs_all_steps(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         result = onboard_company(
@@ -228,7 +228,7 @@ def test_onboard_company_uses_financial_profile(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(
             connection,
             profile="financial",
@@ -279,7 +279,7 @@ def test_onboard_company_continues_after_unavailable_step(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         result = onboard_company(
@@ -331,7 +331,7 @@ def test_onboard_company_continues_after_failed_step(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         result = onboard_company(
@@ -367,7 +367,7 @@ def test_onboard_company_requires_persisted_symbol(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(
             connection,
             symbol=None,
@@ -401,7 +401,7 @@ def test_onboard_company_rejects_invalid_date_range(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         with pytest.raises(
@@ -432,7 +432,7 @@ def test_onboard_company_marks_publication_dates_unavailable_without_provider(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         result = onboard_company(
@@ -475,7 +475,7 @@ def test_onboard_company_continues_after_unavailable_publication_dates(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _company(connection)
 
         result = onboard_company(
@@ -513,7 +513,7 @@ def test_sec_provider_is_not_called_for_non_us_company(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Spanish Company",
@@ -573,7 +573,7 @@ def test_sec_provider_is_not_called_when_country_unknown(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Unknown Country Company",

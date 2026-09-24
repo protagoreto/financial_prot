@@ -6,7 +6,7 @@ from src.company_discovery import (
     register_company_candidate,
 )
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.providers.yahoo_discovery import (
     YahooCompanyDiscoveryProvider,
 )
@@ -158,7 +158,7 @@ def main(
     )
 
     try:
-        with connect(args.db_path) as connection:
+        with managed_connection(args.db_path) as connection:
             company_id, company = (
                 register_company_candidate(
                     connection=connection,

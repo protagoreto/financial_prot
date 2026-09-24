@@ -1,7 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import (
     get_or_create_company,
     ingest_prices,
@@ -51,7 +51,7 @@ def test_get_or_create_company_is_idempotent(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first_id = get_or_create_company(
             connection,
             name="Inditex",
@@ -87,7 +87,7 @@ def test_ingest_prices_adds_source_and_currency(tmp_path: Path):
 
     provider = DummyPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection,
             name="Inditex",
@@ -138,7 +138,7 @@ def test_incremental_ingestion_starts_after_latest_price(
 
     provider = DummyPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection,
             name="Inditex",
@@ -194,7 +194,7 @@ def test_incremental_ingestion_backfills_missing_history(
 
     provider = DummyPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection,
             name="Inditex",
@@ -252,7 +252,7 @@ def test_incremental_ingestion_tolerates_non_trading_start_date(
 
     provider = DummyPriceProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection,
             name="Inditex",
@@ -325,7 +325,7 @@ def test_ingest_financials_adds_source_and_currency(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Test Company",
@@ -377,7 +377,7 @@ def test_create_source_with_full_provenance(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         source_id = create_source(
             connection=connection,
             provider="inditex",
@@ -416,7 +416,7 @@ def test_get_or_create_company_stores_fundamental_profile(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Example Bank",

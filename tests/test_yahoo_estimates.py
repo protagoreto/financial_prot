@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import ingest_forward_eps_estimate
 from src.metrics import FinancialMetric
 from src.providers.yahoo_estimates import YahooEstimateProvider
@@ -133,7 +133,7 @@ def test_forward_eps_ingestion_is_idempotent(
 
     provider = YahooEstimateProvider()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.execute(
             """
             INSERT INTO companies (

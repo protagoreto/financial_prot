@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from src.analysis import build_valuation_analysis
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import EstimateRecord, PriceRecord
 from src.repository import (
     insert_estimate_record,
@@ -62,7 +62,7 @@ def test_build_complete_valuation_analysis(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -147,7 +147,7 @@ def test_analysis_returns_none_without_estimate(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(

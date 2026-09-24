@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 from src.universe_catalog import (
     load_universe_catalog,
     sync_universe_catalog,
@@ -83,7 +83,7 @@ def main(
             print("mode: validation_only")
             return 0
 
-        with connect(args.db_path) as connection:
+        with managed_connection(args.db_path) as connection:
             result = sync_universe_catalog(
                 connection=connection,
                 companies=companies,

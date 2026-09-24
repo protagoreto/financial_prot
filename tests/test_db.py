@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 
 
 def test_database_initializes(tmp_path: Path):
@@ -8,7 +8,7 @@ def test_database_initializes(tmp_path: Path):
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         tables = {
             row["name"]
             for row in connection.execute(
@@ -41,7 +41,7 @@ def test_schema_version(tmp_path: Path):
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         row = connection.execute(
             """
             SELECT value
@@ -58,7 +58,7 @@ def test_foreign_keys_are_enabled(tmp_path: Path):
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         row = connection.execute(
             "PRAGMA foreign_keys"
         ).fetchone()
@@ -71,7 +71,7 @@ def test_financial_tables_have_expected_indexes(tmp_path: Path):
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         indexes = {
             row["name"]
             for row in connection.execute(
@@ -101,7 +101,7 @@ def test_publication_dates_table_exists(tmp_path):
 
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         row = connection.execute(
             """
             SELECT name
@@ -119,7 +119,7 @@ def test_existing_database_adds_fundamental_profile(
 ):
     db_path = tmp_path / "legacy.sqlite"
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.executescript(
             """
             CREATE TABLE schema_meta (
@@ -164,7 +164,7 @@ def test_existing_database_adds_fundamental_profile(
     initialize_database(db_path)
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         columns = {
             row["name"]
             for row in connection.execute(
@@ -204,7 +204,7 @@ def test_fundamental_profile_constraint(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(
                 """
@@ -233,7 +233,7 @@ def test_existing_database_adds_symbol_idempotently(
 ):
     db_path = tmp_path / "legacy_symbol.sqlite"
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         connection.executescript(
             """
             CREATE TABLE schema_meta (
@@ -280,7 +280,7 @@ def test_existing_database_adds_symbol_idempotently(
     initialize_database(db_path)
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         columns = {
             row["name"]
             for row in connection.execute(
@@ -307,3 +307,17 @@ def test_existing_database_adds_symbol_idempotently(
     assert "symbol" in columns
     assert company["symbol"] is None
     assert version["value"] == "0.7.0"
+
+def test_managed_connection_releases_database_file(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "managed.sqlite"
+
+    with managed_connection(db_path) as connection:
+        connection.execute(
+            "CREATE TABLE probe (id INTEGER)"
+        )
+
+    db_path.unlink()
+
+    assert not db_path.exists()

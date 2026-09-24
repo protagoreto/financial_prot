@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import get_or_create_company
 from src.metrics import FinancialMetric
 from src.models import EstimateRecord
@@ -70,7 +70,7 @@ def test_resolve_radar_universe_builds_inputs(
 
     company = _company()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _insert_company(
             connection,
             company,
@@ -106,7 +106,7 @@ def test_resolve_radar_universe_preserves_order(
     first = _company("AAA")
     second = _company("BBB")
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         first_id = _insert_company(connection, first)
         second_id = _insert_company(connection, second)
 
@@ -146,7 +146,7 @@ def test_resolve_radar_universe_reports_missing_company(
 
     company = _company()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = resolve_radar_universe(
             connection=connection,
             universe=(company,),
@@ -170,7 +170,7 @@ def test_resolve_radar_universe_reports_missing_forward_eps(
 
     company = _company()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         _insert_company(connection, company)
 
         result = resolve_radar_universe(
@@ -196,7 +196,7 @@ def test_resolve_radar_universe_does_not_use_future_estimate(
 
     company = _company()
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = _insert_company(
             connection,
             company,
@@ -231,7 +231,7 @@ def test_resolve_radar_universe_handles_mixed_resolution(
     missing_estimate = _company("BBB")
     missing_company = _company("CCC")
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         resolved_id = _insert_company(
             connection,
             resolved,
@@ -298,7 +298,7 @@ def test_resolve_radar_universe_rejects_duplicate_identity(
         currency="EUR",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             ValueError,
             match="must be unique",
@@ -316,7 +316,7 @@ def test_resolve_radar_universe_accepts_empty_universe(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = resolve_radar_universe(
             connection=connection,
             universe=(),

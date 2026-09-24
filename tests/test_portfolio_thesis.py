@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.models import PortfolioThesis
 from src.repository import (
     get_portfolio_thesis_on_or_before,
@@ -102,7 +102,7 @@ def test_insert_and_read_thesis(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         thesis_id = upsert_portfolio_thesis(
@@ -142,7 +142,7 @@ def test_future_thesis_is_not_visible(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         upsert_portfolio_thesis(
@@ -169,7 +169,7 @@ def test_latest_thesis_on_or_before_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         upsert_portfolio_thesis(
@@ -215,7 +215,7 @@ def test_same_effective_date_updates_existing_version(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         first_id = upsert_portfolio_thesis(
@@ -265,7 +265,7 @@ def test_thesis_history_preserves_versions(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         upsert_portfolio_thesis(
@@ -304,7 +304,7 @@ def test_unknown_company_is_rejected_by_foreign_key(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(sqlite3.IntegrityError):
             upsert_portfolio_thesis(
                 connection,
@@ -322,7 +322,7 @@ def test_schema_version_is_0_6_0(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         row = connection.execute(
             """
             SELECT value

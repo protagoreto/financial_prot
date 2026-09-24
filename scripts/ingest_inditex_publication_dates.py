@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.config import settings
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import (
     create_source,
     get_or_create_company,
@@ -36,7 +36,7 @@ PUBLICATION_DATES = [
 def main() -> None:
     initialize_database(settings.db_path)
 
-    with connect(settings.db_path) as connection:
+    with managed_connection(settings.db_path) as connection:
         company_id = get_or_create_company(
             connection=connection,
             name="Industria de Diseño Textil, S.A.",

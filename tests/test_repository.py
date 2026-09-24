@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.metrics import FinancialMetric, PeriodType, StatementType
 from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.repository import (
@@ -45,7 +45,7 @@ def test_insert_financial_record(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         record = FinancialRecord(
@@ -80,7 +80,7 @@ def test_insert_estimate_record(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         record = EstimateRecord(
@@ -113,7 +113,7 @@ def test_insert_price_record(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         record = PriceRecord(
@@ -152,7 +152,7 @@ def test_insert_price_record_is_idempotent(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         first_record = PriceRecord(
@@ -213,7 +213,7 @@ def test_get_latest_price_date_returns_none_without_prices(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         from src.repository import get_latest_price_date
@@ -232,7 +232,7 @@ def test_get_latest_price_date_returns_most_recent_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -270,7 +270,7 @@ def test_get_price_on_or_before_exact_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -302,7 +302,7 @@ def test_get_price_on_or_before_uses_previous_session(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -334,7 +334,7 @@ def test_get_price_on_or_before_returns_none_before_history(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -363,7 +363,7 @@ def test_financial_is_not_available_before_publication(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_financial_record(
@@ -397,7 +397,7 @@ def test_financial_is_available_on_publication_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_financial_record(
@@ -433,7 +433,7 @@ def test_financial_query_uses_latest_known_publication(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_financial_record(
@@ -482,7 +482,7 @@ def test_estimate_is_not_available_before_estimate_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -515,7 +515,7 @@ def test_estimate_is_available_on_estimate_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -550,7 +550,7 @@ def test_estimate_query_uses_latest_known_revision(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -598,7 +598,7 @@ def test_financial_without_publication_date_is_not_point_in_time_available(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_financial_record(
@@ -633,7 +633,7 @@ def test_insert_publication_date_with_provenance(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         source_id = connection.execute(
@@ -691,7 +691,7 @@ def test_get_verified_publication_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         source_id = connection.execute(
@@ -736,7 +736,7 @@ def test_get_verified_publication_date_returns_none_when_unknown(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         result = get_verified_publication_date(
@@ -755,7 +755,7 @@ def test_verified_publication_date_controls_point_in_time_access(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         financial_source_id = connection.execute(
@@ -856,7 +856,7 @@ def test_insert_publication_date_is_idempotent(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         source_id = connection.execute(
@@ -914,7 +914,7 @@ def test_get_financial_for_period_respects_publication_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_financial_record(
@@ -975,7 +975,7 @@ def test_get_company_by_id_returns_company(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         company = get_company_by_id(
@@ -998,7 +998,7 @@ def test_get_company_by_id_returns_none_when_unknown(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company = get_company_by_id(
             connection=connection,
             company_id=999,
@@ -1013,7 +1013,7 @@ def test_get_company_by_id_rejects_invalid_id(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             ValueError,
             match="positive",
@@ -1030,7 +1030,7 @@ def test_get_next_estimate_period_selects_nearest_forward_period(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -1070,7 +1070,7 @@ def test_get_next_estimate_period_is_point_in_time(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -1100,7 +1100,7 @@ def test_get_next_estimate_period_excludes_past_periods(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -1130,7 +1130,7 @@ def test_get_next_estimate_period_respects_metric(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_estimate_record(
@@ -1160,7 +1160,7 @@ def test_get_next_estimate_period_rejects_invalid_company_id(
     db_path = tmp_path / "test.db"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             ValueError,
             match="company_id must be positive",
@@ -1181,7 +1181,7 @@ def test_get_price_on_or_after_exact_date(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -1213,7 +1213,7 @@ def test_get_price_on_or_after_uses_next_session(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -1255,7 +1255,7 @@ def test_get_price_on_or_after_returns_none_after_history(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         insert_price_record(
@@ -1286,7 +1286,7 @@ def test_get_company_by_id_returns_fundamental_profile(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         cursor = connection.execute(
             """
             INSERT INTO companies (
@@ -1324,7 +1324,7 @@ def test_get_company_by_id_returns_symbol(tmp_path: Path):
     db_path = tmp_path / "company_symbol.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         cursor = connection.execute(
             """
             INSERT INTO companies (

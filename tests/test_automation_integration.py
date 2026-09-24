@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.automation import main
-from src.db import connect
+from src.db import connect, managed_connection
 from src.universe import CompanyConfig
 
 
@@ -45,7 +45,7 @@ def test_radar_cli_end_to_end_persists_success_for_unresolved_company(
 
     assert exit_code == 0
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         analysis_runs = connection.execute(
             """
             SELECT

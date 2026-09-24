@@ -1,9 +1,9 @@
 from src.config import settings
-from src.db import connect
+from src.db import connect, managed_connection
 
 
 def main() -> None:
-    with connect(settings.db_path) as connection:
+    with managed_connection(settings.db_path) as connection:
         rows = connection.execute(
             """
             SELECT

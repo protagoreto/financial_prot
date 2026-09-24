@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 from src.dashboard import run_dashboard_radar
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.ingestion import get_or_create_company
 from src.scenarios import ValuationScenario
 from src.universe import CompanyConfig
@@ -23,7 +23,7 @@ def test_run_dashboard_radar_preserves_unresolved_company(
         currency="EUR",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         get_or_create_company(
             connection=connection,
             name=company.name,

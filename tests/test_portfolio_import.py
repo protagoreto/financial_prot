@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import connect, initialize_database
+from src.db import connect, managed_connection, initialize_database
 from src.portfolio_import import (
     PortfolioImportError,
     import_portfolio_csv,
@@ -64,7 +64,7 @@ def test_company_lookup_by_ticker_and_exchange(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(
             connection,
             ticker="ITX",
@@ -86,7 +86,7 @@ def test_company_lookup_returns_none_when_unknown(
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = get_company_id_by_ticker_exchange(
             connection,
             ticker="UNKNOWN",
@@ -111,7 +111,7 @@ def test_import_buy_transaction(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         result = import_portfolio_csv(
@@ -152,7 +152,7 @@ def test_import_cash_without_company(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         result = import_portfolio_csv(
             connection,
             csv_path,
@@ -182,7 +182,7 @@ def test_import_dividend(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         import_portfolio_csv(
@@ -215,7 +215,7 @@ def test_import_is_idempotent_by_external_id(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         create_company(connection)
 
         import_portfolio_csv(
@@ -250,7 +250,7 @@ def test_unknown_company_is_rejected(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             PortfolioImportError,
             match="unknown company",
@@ -276,7 +276,7 @@ def test_buy_requires_company_identity(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             PortfolioImportError,
             match="ticker and exchange are required",
@@ -302,7 +302,7 @@ def test_partial_company_identity_is_rejected(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             PortfolioImportError,
             match="must be provided together",
@@ -328,7 +328,7 @@ def test_cash_cannot_reference_company(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         create_company(connection)
 
         with pytest.raises(
@@ -356,7 +356,7 @@ def test_invalid_numeric_value_is_rejected(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         create_company(connection)
 
         with pytest.raises(
@@ -385,7 +385,7 @@ def test_missing_required_column_is_rejected(
         encoding="utf-8",
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         with pytest.raises(
             PortfolioImportError,
             match="missing columns",
@@ -413,7 +413,7 @@ def test_invalid_row_does_not_partially_import_file(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         create_company(connection)
 
         with pytest.raises(
@@ -447,7 +447,7 @@ def test_transaction_type_is_case_insensitive(
         ),
     )
 
-    with connect(db_path) as connection:
+    with managed_connection(db_path) as connection:
         company_id = create_company(connection)
 
         import_portfolio_csv(
