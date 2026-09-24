@@ -221,6 +221,7 @@ def ingest_financials(
     company_id: int,
     symbol: str,
     currency: str,
+    fundamental_profile: str = "operating",
 ) -> int:
     source_id = create_source(
         connection=connection,
@@ -231,6 +232,7 @@ def ingest_financials(
     records = provider.get_annual_financials(
         company_id=company_id,
         symbol=symbol,
+        fundamental_profile=fundamental_profile,
     )
 
     processed = 0

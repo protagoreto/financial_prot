@@ -8,6 +8,7 @@ class FinancialMetric(str, Enum):
     EBIT = "ebit"
     NET_INCOME = "net_income"
     EPS = "eps"
+    NET_INTEREST_INCOME = "net_interest_income"
 
     # Cash flow
     OPERATING_CASH_FLOW = "operating_cash_flow"
@@ -19,6 +20,9 @@ class FinancialMetric(str, Enum):
     TOTAL_DEBT = "total_debt"
     NET_DEBT = "net_debt"
     EQUITY = "equity"
+    TANGIBLE_BOOK_VALUE = "tangible_book_value"
+    TOTAL_ASSETS = "total_assets"
+    NET_LOANS = "net_loans"
 
     # Share data
     SHARES_OUTSTANDING = "shares_outstanding"

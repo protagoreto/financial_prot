@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from datetime import date
 import sqlite3
 
+from src.financial_fundamentals import (
+    FINANCIAL_REQUIRED_METRICS,
+    build_financial_fundamental_growth_snapshot,
+    build_financial_fundamental_snapshot,
+)
 from src.fundamentals import (
     build_fundamental_growth_snapshot,
     build_fundamental_snapshot,
@@ -109,17 +114,42 @@ def build_company_coverage(
         as_of_date=as_of_date,
     )
 
-    fundamental_snapshot = build_fundamental_snapshot(
-        connection=connection,
-        company_id=company_id,
-        as_of_date=as_of_date,
-    )
+    if company.fundamental_profile.value == "financial":
+        fundamental_snapshot = (
+            build_financial_fundamental_snapshot(
+                connection=connection,
+                company_id=company_id,
+                as_of_date=as_of_date,
+            )
+        )
 
-    fundamental_growth = build_fundamental_growth_snapshot(
-        connection=connection,
-        company_id=company_id,
-        as_of_date=as_of_date,
-    )
+        fundamental_growth = (
+            build_financial_fundamental_growth_snapshot(
+                connection=connection,
+                company_id=company_id,
+                as_of_date=as_of_date,
+            )
+        )
+
+        snapshot_metrics = FINANCIAL_REQUIRED_METRICS
+        growth_metrics = FINANCIAL_REQUIRED_METRICS
+    else:
+        fundamental_snapshot = build_fundamental_snapshot(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=as_of_date,
+        )
+
+        fundamental_growth = (
+            build_fundamental_growth_snapshot(
+                connection=connection,
+                company_id=company_id,
+                as_of_date=as_of_date,
+            )
+        )
+
+        snapshot_metrics = FUNDAMENTAL_SNAPSHOT_METRICS
+        growth_metrics = FUNDAMENTAL_GROWTH_METRICS
 
     forward_eps_period = get_next_estimate_period_on_or_after(
         connection=connection,
@@ -152,13 +182,13 @@ def build_company_coverage(
 
     missing_snapshot_metrics = tuple(
         metric
-        for metric in FUNDAMENTAL_SNAPSHOT_METRICS
+        for metric in snapshot_metrics
         if metric not in available_metrics
     )
 
     missing_growth_metrics = tuple(
         metric
-        for metric in FUNDAMENTAL_GROWTH_METRICS
+        for metric in growth_metrics
         if metric not in available_metrics
     )
 

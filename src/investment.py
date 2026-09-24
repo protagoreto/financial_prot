@@ -12,6 +12,13 @@ from src.assessment import (
     FundamentalAssessment,
     assess_fundamentals,
 )
+from src.financial_assessment import (
+    assess_financial_fundamentals,
+)
+from src.financial_signals import (
+    build_financial_fundamental_signals,
+)
+from src.repository import get_company_by_id
 from src.scenarios import ValuationScenario
 from src.signals import build_fundamental_signals
 from src.value import ValueAssessment, assess_value
@@ -63,20 +70,43 @@ def build_investment_analysis(
         else None
     )
 
-    signals = build_fundamental_signals(
+    company = get_company_by_id(
         connection=connection,
         company_id=company_id,
-        as_of_date=as_of_date,
-        low_net_debt_threshold=low_net_debt_threshold,
     )
 
     fundamentals = None
 
-    if signals is not None:
-        fundamentals = assess_fundamentals(
-            signals=signals,
-            policy=assessment_policy,
+    if (
+        company is not None
+        and company.fundamental_profile.value == "financial"
+    ):
+        financial_signals = (
+            build_financial_fundamental_signals(
+                connection=connection,
+                company_id=company_id,
+                as_of_date=as_of_date,
+            )
         )
+
+        if financial_signals is not None:
+            fundamentals = assess_financial_fundamentals(
+                signals=financial_signals,
+                policy=assessment_policy,
+            )
+    else:
+        signals = build_fundamental_signals(
+            connection=connection,
+            company_id=company_id,
+            as_of_date=as_of_date,
+            low_net_debt_threshold=low_net_debt_threshold,
+        )
+
+        if signals is not None:
+            fundamentals = assess_fundamentals(
+                signals=signals,
+                policy=assessment_policy,
+            )
 
     availability = _determine_availability(
         valuation=valuation,

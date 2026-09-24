@@ -18,6 +18,10 @@ class YahooFundamentalsProvider(FundamentalsProvider):
         "EBIT": FinancialMetric.EBIT,
         "NetIncome": FinancialMetric.NET_INCOME,
         "DilutedEPS": FinancialMetric.EPS,
+        "NetInterestIncome":
+            FinancialMetric.NET_INTEREST_INCOME,
+        "DilutedAverageShares":
+            FinancialMetric.SHARES_OUTSTANDING,
     }
 
     BALANCE_METRICS = {
@@ -29,6 +33,12 @@ class YahooFundamentalsProvider(FundamentalsProvider):
             FinancialMetric.EQUITY,
         "OrdinarySharesNumber":
             FinancialMetric.SHARES_OUTSTANDING,
+        "TangibleBookValue":
+            FinancialMetric.TANGIBLE_BOOK_VALUE,
+        "TotalAssets":
+            FinancialMetric.TOTAL_ASSETS,
+        "NetLoan":
+            FinancialMetric.NET_LOANS,
     }
 
     CASH_FLOW_METRICS = {
@@ -48,8 +58,51 @@ class YahooFundamentalsProvider(FundamentalsProvider):
         self,
         company_id: int,
         symbol: str,
+        fundamental_profile: str = "operating",
     ) -> list[FinancialRecord]:
+        if fundamental_profile not in (
+            "operating",
+            "financial",
+        ):
+            raise ValueError(
+                "unsupported fundamental profile: "
+                f"{fundamental_profile}"
+            )
+
         ticker = yf.Ticker(symbol)
+
+        income_metrics = dict(
+            self.INCOME_METRICS
+        )
+        balance_metrics = dict(
+            self.BALANCE_METRICS
+        )
+
+        if fundamental_profile == "operating":
+            income_metrics.pop(
+                "DilutedAverageShares",
+                None,
+            )
+            income_metrics.pop(
+                "NetInterestIncome",
+                None,
+            )
+
+            for metric_name in (
+                "TangibleBookValue",
+                "TotalAssets",
+                "NetLoan",
+            ):
+                balance_metrics.pop(
+                    metric_name,
+                    None,
+                )
+
+        else:
+            balance_metrics.pop(
+                "OrdinarySharesNumber",
+                None,
+            )
 
         records: list[FinancialRecord] = []
 
@@ -60,7 +113,7 @@ class YahooFundamentalsProvider(FundamentalsProvider):
                     freq="yearly"
                 ),
                 statement_type=StatementType.INCOME_STATEMENT,
-                metric_map=self.INCOME_METRICS,
+                metric_map=income_metrics,
             )
         )
 
@@ -71,7 +124,7 @@ class YahooFundamentalsProvider(FundamentalsProvider):
                     freq="yearly"
                 ),
                 statement_type=StatementType.BALANCE_SHEET,
-                metric_map=self.BALANCE_METRICS,
+                metric_map=balance_metrics,
             )
         )
 
