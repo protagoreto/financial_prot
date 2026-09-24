@@ -103,7 +103,7 @@ def test_prices_command_returns_zero_when_complete(
     with patch(
         "scripts.automation.initialize_database"
     ), patch(
-        "scripts.automation.connect"
+        "scripts.automation.managed_connection"
     ) as connect_mock, patch(
         "scripts.automation.update_prices",
         return_value=result,
@@ -161,7 +161,7 @@ def test_prices_command_returns_nonzero_for_partial_failure(
     with patch(
         "scripts.automation.initialize_database"
     ), patch(
-        "scripts.automation.connect"
+        "scripts.automation.managed_connection"
     ), patch(
         "scripts.automation.update_prices",
         return_value=result,
@@ -197,7 +197,7 @@ def test_radar_command_passes_explicit_scenarios(
     with patch(
         "scripts.automation.initialize_database"
     ), patch(
-        "scripts.automation.connect"
+        "scripts.automation.managed_connection"
     ) as connect_mock, patch(
         "scripts.automation.run_audited_radar",
         return_value=radar_run,
@@ -351,7 +351,7 @@ def test_radar_command_sends_requested_notification(
     with patch(
         "scripts.automation.initialize_database"
     ), patch(
-        "scripts.automation.connect"
+        "scripts.automation.managed_connection"
     ), patch(
         "scripts.automation.run_audited_radar",
         return_value=_notification_radar_run(),
@@ -404,7 +404,7 @@ def test_radar_command_without_notify_does_not_use_runtime(
     with patch(
         "scripts.automation.initialize_database"
     ), patch(
-        "scripts.automation.connect"
+        "scripts.automation.managed_connection"
     ), patch(
         "scripts.automation.run_audited_radar",
         return_value=_notification_radar_run(),

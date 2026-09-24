@@ -258,7 +258,7 @@ def test_build_backtest_outcome_uses_exact_target_date(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import PriceRecord
     from src.repository import insert_price_record
 
@@ -295,7 +295,7 @@ def test_build_backtest_outcome_uses_next_available_session(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import PriceRecord
     from src.repository import insert_price_record
 
@@ -330,7 +330,7 @@ def test_build_backtest_outcome_rejects_price_beyond_tolerance(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import PriceRecord
     from src.repository import insert_price_record
 
@@ -364,7 +364,7 @@ def test_build_backtest_outcome_returns_none_without_future_price(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import PriceRecord
     from src.repository import insert_price_record
 
@@ -397,7 +397,7 @@ def test_build_backtest_outcome_accepts_tolerance_boundary(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import PriceRecord
     from src.repository import insert_price_record
 
@@ -432,7 +432,7 @@ def test_build_backtest_outcome_rejects_invalid_company_id(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
 
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
@@ -453,7 +453,7 @@ def test_build_backtest_outcome_rejects_negative_tolerance(
     tmp_path,
 ):
     from src.backtest import build_backtest_outcome
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
 
     db_path = tmp_path / "test.sqlite"
     initialize_database(db_path)
@@ -772,7 +772,7 @@ def test_backtest_ex_ante_snapshot_rejects_signal_date_mismatch():
 
 def test_build_backtest_series_is_point_in_time(tmp_path):
     from src.backtest import build_backtest_series
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import EstimateRecord, PriceRecord
     from src.repository import (
         insert_estimate_record,
@@ -874,7 +874,7 @@ def test_build_backtest_series_preserves_date_without_known_estimate(
     tmp_path,
 ):
     from src.backtest import build_backtest_series
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import EstimateRecord, PriceRecord
     from src.repository import (
         insert_estimate_record,
@@ -954,7 +954,7 @@ def test_build_backtest_series_does_not_use_future_estimate(
     tmp_path,
 ):
     from src.backtest import build_backtest_series
-    from src.db import connect, initialize_database
+    from src.db import managed_connection, initialize_database
     from src.models import EstimateRecord, PriceRecord
     from src.repository import (
         insert_estimate_record,
