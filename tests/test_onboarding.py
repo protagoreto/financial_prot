@@ -501,3 +501,121 @@ def test_onboard_company_continues_after_unavailable_publication_dates(
         OnboardingStatus.UNAVAILABLE
     )
     assert result.failed == 0
+
+def test_sec_provider_is_not_called_for_non_us_company(
+    tmp_path: Path,
+    monkeypatch,
+):
+    from src.providers.sec_publication_dates import (
+        SecPublicationDateProvider,
+    )
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection=connection,
+            name="Spanish Company",
+            ticker="ABC",
+            exchange="BME",
+            currency="EUR",
+            fundamental_profile="operating",
+            symbol="ABC.MC",
+            country="Spain",
+        )
+
+        provider = SecPublicationDateProvider(
+            "Example example@example.com"
+        )
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError(
+                "SEC must not be called for non-US company"
+            )
+
+        monkeypatch.setattr(
+            provider,
+            "get_publication_dates",
+            fail_if_called,
+        )
+
+        result = onboard_company(
+            connection=connection,
+            company_id=company_id,
+            price_provider=DummyPriceProvider(),
+            fundamentals_provider=DummyFundamentalsProvider(),
+            estimate_provider=DummyEstimateProvider(),
+            dividend_provider=DummyDividendProvider(),
+            initial_price_date=date(2025, 1, 1),
+            end_date=date(2026, 12, 31),
+            estimate_date=date(2026, 1, 15),
+            publication_date_provider=provider,
+        )
+
+    step = next(
+        item
+        for item in result.steps
+        if item.name == "publication_dates"
+    )
+
+    assert step.status == OnboardingStatus.UNAVAILABLE
+
+
+def test_sec_provider_is_not_called_when_country_unknown(
+    tmp_path: Path,
+    monkeypatch,
+):
+    from src.providers.sec_publication_dates import (
+        SecPublicationDateProvider,
+    )
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection=connection,
+            name="Unknown Country Company",
+            ticker="ABC",
+            exchange="TEST",
+            currency="USD",
+            fundamental_profile="operating",
+            symbol="ABC",
+        )
+
+        provider = SecPublicationDateProvider(
+            "Example example@example.com"
+        )
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError(
+                "SEC must not be called without country identity"
+            )
+
+        monkeypatch.setattr(
+            provider,
+            "get_publication_dates",
+            fail_if_called,
+        )
+
+        result = onboard_company(
+            connection=connection,
+            company_id=company_id,
+            price_provider=DummyPriceProvider(),
+            fundamentals_provider=DummyFundamentalsProvider(),
+            estimate_provider=DummyEstimateProvider(),
+            dividend_provider=DummyDividendProvider(),
+            initial_price_date=date(2025, 1, 1),
+            end_date=date(2026, 12, 31),
+            estimate_date=date(2026, 1, 15),
+            publication_date_provider=provider,
+        )
+
+    step = next(
+        item
+        for item in result.steps
+        if item.name == "publication_dates"
+    )
+
+    assert step.status == OnboardingStatus.UNAVAILABLE

@@ -12,6 +12,9 @@ from src.ingestion import (
     ingest_publication_dates,
 )
 from src.repository import get_company_by_id
+from src.publication_date_policy import (
+    publication_date_provider_for_company,
+)
 
 
 class OnboardingStatus(str, Enum):
@@ -124,6 +127,12 @@ def onboard_company(
 
     symbol = company.symbol.strip()
     currency = company.currency.strip()
+    eligible_publication_date_provider = (
+        publication_date_provider_for_company(
+            company=company,
+            provider=publication_date_provider,
+        )
+    )
 
     steps = (
         _run_step(
@@ -176,12 +185,12 @@ def onboard_company(
                 "publication_dates",
                 lambda: ingest_publication_dates(
                     connection=connection,
-                    provider=publication_date_provider,
+                    provider=eligible_publication_date_provider,
                     company_id=company_id,
                     symbol=symbol,
                 ),
             )
-            if publication_date_provider is not None
+            if eligible_publication_date_provider is not None
             else OnboardingStepResult(
                 name="publication_dates",
                 status=OnboardingStatus.UNAVAILABLE,
