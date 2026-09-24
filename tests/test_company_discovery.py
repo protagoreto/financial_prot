@@ -98,6 +98,7 @@ def test_build_company_config_preserves_provider_symbol():
     assert company.symbol == "ABC.MC"
     assert company.exchange == "BME"
     assert company.currency == "EUR"
+    assert company.country == "Spain"
 
 
 def test_register_company_candidate_is_idempotent(
@@ -128,7 +129,7 @@ def test_register_company_candidate_is_idempotent(
 
         row = connection.execute(
             """
-            SELECT symbol
+            SELECT symbol, country
             FROM companies
             WHERE company_id = ?
             """,
@@ -139,6 +140,139 @@ def test_register_company_candidate_is_idempotent(
     assert first == second
     assert count == 1
     assert row["symbol"] == "ABC.MC"
+    assert row["country"] == "Spain"
+
+
+def test_registration_enriches_missing_country(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    without_country = CompanyCandidate(
+        symbol="ABC.MC",
+        name="Example Company",
+        currency="EUR",
+    )
+    with_country = CompanyCandidate(
+        symbol="ABC.MC",
+        name="Example Company",
+        currency="EUR",
+        country="  Spain  ",
+    )
+
+    with connect(db_path) as connection:
+        first_id, first = register_company_candidate(
+            connection,
+            without_country,
+            exchange="BME",
+            fundamental_profile="operating",
+        )
+        second_id, second = register_company_candidate(
+            connection,
+            with_country,
+            exchange="BME",
+            fundamental_profile="operating",
+        )
+
+        row = connection.execute(
+            """
+            SELECT country
+            FROM companies
+            WHERE company_id = ?
+            """,
+            (first_id,),
+        ).fetchone()
+
+    assert first_id == second_id
+    assert first.country is None
+    assert second.country == "Spain"
+    assert row["country"] == "Spain"
+
+
+def test_registration_rejects_country_conflict(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id, _ = register_company_candidate(
+            connection,
+            _candidate(),
+            exchange="BME",
+            fundamental_profile="operating",
+        )
+
+        conflicting = CompanyCandidate(
+            symbol="ABC.MC",
+            name="Example Company",
+            currency="EUR",
+            country="Portugal",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="different country",
+        ):
+            register_company_candidate(
+                connection,
+                conflicting,
+                exchange="BME",
+                fundamental_profile="operating",
+            )
+
+        row = connection.execute(
+            """
+            SELECT country
+            FROM companies
+            WHERE company_id = ?
+            """,
+            (company_id,),
+        ).fetchone()
+
+    assert row["country"] == "Spain"
+
+
+def test_registration_country_match_is_case_insensitive(
+    tmp_path: Path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        first_id, _ = register_company_candidate(
+            connection,
+            _candidate(),
+            exchange="BME",
+            fundamental_profile="operating",
+        )
+
+        same_country = CompanyCandidate(
+            symbol="ABC.MC",
+            name="Example Company",
+            currency="EUR",
+            country="spain",
+        )
+
+        second_id, _ = register_company_candidate(
+            connection,
+            same_country,
+            exchange="BME",
+            fundamental_profile="operating",
+        )
+
+        row = connection.execute(
+            """
+            SELECT country
+            FROM companies
+            WHERE company_id = ?
+            """,
+            (first_id,),
+        ).fetchone()
+
+    assert first_id == second_id
+    assert row["country"] == "Spain"
 
 
 def test_registration_requires_currency(

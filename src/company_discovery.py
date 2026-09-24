@@ -73,6 +73,12 @@ def build_company_config(
         exchange=normalized_exchange,
         currency=candidate.currency.strip().upper(),
         fundamental_profile=normalized_profile,
+        country=(
+            candidate.country.strip()
+            if candidate.country
+            and candidate.country.strip()
+            else None
+        ),
     )
 
 
@@ -98,6 +104,7 @@ def register_company_candidate(
             company.fundamental_profile
         ),
         symbol=company.symbol,
+        country=company.country,
     )
 
     return company_id, company

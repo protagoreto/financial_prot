@@ -9,6 +9,7 @@ class CompanyConfig:
     exchange: str
     currency: str
     fundamental_profile: str = "operating"
+    country: str | None = None
 
 
 IBEX_UNIVERSE: tuple[CompanyConfig, ...] = (

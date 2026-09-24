@@ -21,10 +21,16 @@ def get_or_create_company(
     currency: str,
     fundamental_profile: str = "operating",
     symbol: str | None = None,
+    country: str | None = None,
 ) -> int:
     normalized_symbol = (
         symbol.strip()
         if symbol is not None and symbol.strip()
+        else None
+    )
+    normalized_country = (
+        country.strip()
+        if country is not None and country.strip()
         else None
     )
 
@@ -32,7 +38,8 @@ def get_or_create_company(
         """
         SELECT
             company_id,
-            symbol
+            symbol,
+            country
         FROM companies
         WHERE UPPER(ticker) = UPPER(?)
         AND UPPER(exchange) = UPPER(?)
@@ -41,37 +48,73 @@ def get_or_create_company(
     ).fetchone()
 
     if row:
-        if normalized_symbol is not None:
-            existing_symbol = row["symbol"]
+        existing_symbol = row["symbol"]
+        existing_country = row["country"]
 
-            if (
-                existing_symbol is not None
-                and existing_symbol.strip()
-                and existing_symbol.casefold()
-                != normalized_symbol.casefold()
-            ):
-                raise ValueError(
-                    "Existing company has a different symbol: "
-                    f"{existing_symbol!r} != "
-                    f"{normalized_symbol!r}"
-                )
+        if (
+            normalized_symbol is not None
+            and existing_symbol is not None
+            and existing_symbol.strip()
+            and existing_symbol.casefold()
+            != normalized_symbol.casefold()
+        ):
+            raise ValueError(
+                "Existing company has a different symbol: "
+                f"{existing_symbol!r} != "
+                f"{normalized_symbol!r}"
+            )
 
-            if (
+        if (
+            normalized_country is not None
+            and existing_country is not None
+            and existing_country.strip()
+            and existing_country.casefold()
+            != normalized_country.casefold()
+        ):
+            raise ValueError(
+                "Existing company has a different country: "
+                f"{existing_country!r} != "
+                f"{normalized_country!r}"
+            )
+
+        symbol_to_store = (
+            normalized_symbol
+            if normalized_symbol is not None
+            and (
                 existing_symbol is None
                 or not existing_symbol.strip()
-            ):
-                connection.execute(
-                    """
-                    UPDATE companies
-                    SET symbol = ?
-                    WHERE company_id = ?
-                    """,
-                    (
-                        normalized_symbol,
-                        row["company_id"],
-                    ),
-                )
-                connection.commit()
+            )
+            else existing_symbol
+        )
+        country_to_store = (
+            normalized_country
+            if normalized_country is not None
+            and (
+                existing_country is None
+                or not existing_country.strip()
+            )
+            else existing_country
+        )
+
+        if (
+            symbol_to_store != existing_symbol
+            or country_to_store != existing_country
+        ):
+            connection.execute(
+                """
+                UPDATE companies
+                SET
+                    symbol = ?,
+                    country = ?
+                WHERE company_id = ?
+                """,
+                (
+                    symbol_to_store,
+                    country_to_store,
+                    row["company_id"],
+                ),
+            )
+            connection.commit()
 
         return row["company_id"]
 
@@ -81,16 +124,18 @@ def get_or_create_company(
             name,
             ticker,
             symbol,
+            country,
             exchange,
             currency,
             fundamental_profile
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             name,
             ticker,
             normalized_symbol,
+            normalized_country,
             exchange,
             currency,
             fundamental_profile,
