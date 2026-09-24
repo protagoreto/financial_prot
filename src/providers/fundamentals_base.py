@@ -15,5 +15,6 @@ class FundamentalsProvider(ABC):
         self,
         company_id: int,
         symbol: str,
+        fundamental_profile: str = "operating",
     ) -> list[FinancialRecord]:
         raise NotImplementedError
