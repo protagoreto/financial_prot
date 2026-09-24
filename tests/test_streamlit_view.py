@@ -4,7 +4,16 @@ from src.assessment import AssessmentLevel, RiskLevel
 from src.investment import AnalysisAvailability
 from src.presentation import AnalysisPresentation
 from src.radar_presentation import RadarPresentation
-from src.streamlit_view import build_radar_table
+from src.streamlit_view import (
+    build_radar_table,
+    financial_help,
+    format_decimal,
+    format_percentage,
+    translate_assessment_level,
+    translate_availability,
+    translate_onboarding_status,
+    translate_onboarding_step,
+)
 from src.value import ValueCondition
 
 
@@ -43,18 +52,18 @@ def test_build_radar_table_preserves_values():
 
     assert rows == [
         {
-            "Company": "Example Company",
+            "Empresa": "Example Company",
             "Ticker": "EX",
-            "Exchange": "TEST",
-            "Availability": "complete",
-            "Quality": "strong",
-            "Risk": "low",
-            "Value trap": False,
-            "Scenario": "Base",
-            "Expected return": 0.123456,
-            "Required price": 101.2345,
-            "Price margin": 0.06789,
-            "Condition": "target_met",
+            "Mercado": "TEST",
+            "Disponibilidad": "Completo",
+            "Calidad": "Fuerte",
+            "Riesgo": "Bajo",
+            "Trampa de valor": "No",
+            "Escenario": "Base",
+            "Rentabilidad esperada": "12,35%",
+            "Precio requerido": "101,23",
+            "Margen sobre precio": "6,79%",
+            "Condici\u00f3n": "Objetivo cumplido",
         }
     ]
 
@@ -95,14 +104,14 @@ def test_build_radar_table_preserves_missing_values():
     row = rows[0]
 
     assert row["Ticker"] is None
-    assert row["Exchange"] is None
-    assert row["Quality"] is None
-    assert row["Risk"] is None
-    assert row["Value trap"] is None
-    assert row["Expected return"] is None
-    assert row["Required price"] is None
-    assert row["Price margin"] is None
-    assert row["Condition"] is None
+    assert row["Mercado"] is None
+    assert row["Calidad"] is None
+    assert row["Riesgo"] is None
+    assert row["Trampa de valor"] is None
+    assert row["Rentabilidad esperada"] is None
+    assert row["Precio requerido"] is None
+    assert row["Margen sobre precio"] is None
+    assert row["Condici\u00f3n"] is None
 
 
 def test_build_radar_table_handles_empty_radar():
@@ -147,10 +156,12 @@ def test_build_unresolved_table_preserves_issue():
 
     assert build_unresolved_table(unresolved) == [
         {
-            "Company": "Example Company",
+            "Empresa": "Example Company",
             "Ticker": "EX",
-            "Exchange": "TEST",
-            "Issue": "forward_eps_period_not_found",
+            "Mercado": "TEST",
+            "Incidencia": (
+                "No se encontr\u00f3 el periodo de BPA estimado"
+            ),
         }
     ]
 
@@ -159,3 +170,46 @@ def test_build_unresolved_table_handles_empty_input():
     from src.streamlit_view import build_unresolved_table
 
     assert build_unresolved_table(()) == []
+
+def test_spanish_financial_formatters():
+    assert format_decimal(20.9134) == "20,91"
+    assert format_decimal(23.6759, 4) == "23,6759"
+    assert format_percentage(0.0021) == "0,21%"
+    assert format_percentage(0.1525) == "15,25%"
+    assert format_percentage(-0.3724) == "-37,24%"
+
+
+def test_spanish_financial_translations():
+    assert translate_availability("complete") == "Completo"
+    assert (
+        translate_availability("valuation_only")
+        == "S\u00f3lo valoraci\u00f3n"
+    )
+    assert translate_assessment_level("strong") == "Fuerte"
+    assert translate_assessment_level("low") == "Bajo"
+    assert translate_onboarding_status("success") == "Correcto"
+    assert translate_onboarding_status("failed") == "Fallido"
+    assert translate_onboarding_step("prices") == "Precios"
+    assert (
+        translate_onboarding_step("publication_dates")
+        == "Fechas de publicaci\u00f3n"
+    )
+
+
+def test_financial_help_defines_core_terms():
+    for key in (
+        "price",
+        "forward_eps",
+        "forward_pe",
+        "terminal_pe",
+        "expected_return",
+        "required_eps_growth",
+        "required_pe",
+        "required_price",
+        "price_margin",
+        "pit_fundamentals",
+        "quality",
+        "risk",
+        "value_trap",
+    ):
+        assert financial_help(key)
