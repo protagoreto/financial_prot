@@ -331,3 +331,284 @@ def test_render_coverage_preserves_pit_state(
     assert writes == [
         "**M\u00e9tricas PIT faltantes:** eps, revenue"
     ]
+
+def test_percentage_ui_domain_conversion():
+    from streamlit_app import (
+        percentage_from_domain,
+        percentage_to_domain,
+    )
+
+    assert percentage_to_domain(5.0) == 0.05
+    assert percentage_to_domain(2.0) == 0.02
+    assert percentage_to_domain(10.0) == 0.10
+
+    assert percentage_from_domain(0.05) == 5.0
+    assert percentage_from_domain(0.02) == 2.0
+    assert percentage_from_domain(0.10) == 10.0
+
+
+def test_percentage_ui_domain_round_trip():
+    from streamlit_app import (
+        percentage_from_domain,
+        percentage_to_domain,
+    )
+
+    for value in (
+        0.0,
+        0.02,
+        0.05,
+        0.10,
+        0.1525,
+        -0.05,
+    ):
+        assert (
+            percentage_to_domain(
+                percentage_from_domain(value)
+            )
+            == value
+        )
+
+def test_company_record_to_config_preserves_identity():
+    from src.models import CompanyRecord, FundamentalProfile
+    from streamlit_app import company_record_to_config
+
+    company = CompanyRecord(
+        company_id=42,
+        name="Microsoft Corporation",
+        ticker="MSFT",
+        symbol="MSFT",
+        country="United States",
+        fundamental_profile=FundamentalProfile.OPERATING,
+        currency="USD",
+        exchange="NMS",
+        status="active",
+    )
+
+    config = company_record_to_config(company)
+
+    assert config is not None
+    assert config.name == "Microsoft Corporation"
+    assert config.ticker == "MSFT"
+    assert config.symbol == "MSFT"
+    assert config.exchange == "NMS"
+    assert config.currency == "USD"
+    assert config.fundamental_profile == "operating"
+    assert config.country == "United States"
+
+
+def test_company_record_to_config_rejects_incomplete_identity():
+    from src.models import CompanyRecord, FundamentalProfile
+    from streamlit_app import company_record_to_config
+
+    company = CompanyRecord(
+        company_id=42,
+        name="Incomplete Company",
+        ticker="INC",
+        symbol=None,
+        fundamental_profile=FundamentalProfile.OPERATING,
+        currency="USD",
+        exchange="NMS",
+        status="active",
+    )
+
+    assert company_record_to_config(company) is None
+
+
+def test_radar_company_label_is_unambiguous():
+    from src.universe import CompanyConfig
+    from streamlit_app import radar_company_label
+
+    company = CompanyConfig(
+        name="Microsoft Corporation",
+        ticker="MSFT",
+        symbol="MSFT",
+        exchange="NMS",
+        currency="USD",
+        fundamental_profile="operating",
+        country="United States",
+    )
+
+    assert (
+        radar_company_label(company)
+        == "Microsoft Corporation | MSFT | NMS"
+    )
+
+def test_radar_company_key_is_stable():
+    from src.universe import CompanyConfig
+    from streamlit_app import radar_company_key
+
+    company = CompanyConfig(
+        name="Microsoft Corporation",
+        ticker="msft",
+        symbol="MSFT",
+        exchange="nms",
+        currency="USD",
+    )
+
+    assert radar_company_key(company) == "MSFT::NMS"
+
+
+def test_select_radar_companies_preserves_universe_order():
+    from src.universe import CompanyConfig
+    from streamlit_app import (
+        radar_company_key,
+        select_radar_companies,
+    )
+
+    alpha = CompanyConfig(
+        name="Alpha",
+        ticker="AAA",
+        symbol="AAA",
+        exchange="TEST",
+        currency="EUR",
+    )
+    beta = CompanyConfig(
+        name="Beta",
+        ticker="BBB",
+        symbol="BBB",
+        exchange="TEST",
+        currency="EUR",
+    )
+    gamma = CompanyConfig(
+        name="Gamma",
+        ticker="CCC",
+        symbol="CCC",
+        exchange="TEST",
+        currency="EUR",
+    )
+
+    universe = (alpha, beta, gamma)
+
+    selected = select_radar_companies(
+        universe,
+        (
+            radar_company_key(gamma),
+            radar_company_key(alpha),
+        ),
+    )
+
+    assert selected == (alpha, gamma)
+
+
+def test_select_radar_companies_allows_empty_selection():
+    from src.universe import CompanyConfig
+    from streamlit_app import select_radar_companies
+
+    company = CompanyConfig(
+        name="Alpha",
+        ticker="AAA",
+        symbol="AAA",
+        exchange="TEST",
+        currency="EUR",
+    )
+
+    assert select_radar_companies(
+        (company,),
+        (),
+    ) == ()
+
+def test_radar_selector_precedes_execution_button():
+    from inspect import getsource
+
+    from streamlit_app import render_radar_page
+
+    source = getsource(render_radar_page)
+
+    selector_position = source.index(
+        'st.multiselect('
+    )
+    button_position = source.index(
+        'st.sidebar.button('
+    )
+    execution_position = source.index(
+        'run_dashboard_radar('
+    )
+
+    assert selector_position < button_position
+    assert button_position < execution_position
+    assert "disabled=not selected_universe" in source
+
+def test_run_selected_company_receives_explicit_assumptions():
+    from inspect import getsource
+
+    from streamlit_app import run_selected_company
+
+    source = getsource(run_selected_company)
+
+    assert "scenario: ValuationScenario" in source
+    assert "target_return: float" in source
+    assert "years: int" in source
+    assert "scenarios=(scenario,)" in source
+    assert "target_return=float(target_return)" in source
+    assert "years=int(years)" in source
+
+    assert "eps_growth=0.05" not in source
+    assert "dividend_yield=0.02" not in source
+    assert "terminal_pe=15.0" not in source
+    assert "target_return=0.10" not in source
+
+
+def test_company_analysis_uses_explicit_user_assumptions():
+    from inspect import getsource
+
+    from streamlit_app import render_company_search
+
+    source = getsource(render_company_search)
+
+    assert 'st.subheader("Hip\\u00f3tesis del usuario")' in source
+    assert '"Crecimiento anual del BPA (%)"' in source
+    assert '"Rentabilidad por dividendo (%)"' in source
+    assert '"PER terminal"' in source
+    assert '"Rentabilidad anual objetivo (%)"' in source
+    assert '"Horizonte en a\\u00f1os"' in source
+
+    assert (
+        "eps_growth=percentage_to_domain("
+        in source
+    )
+    assert (
+        "dividend_yield=percentage_to_domain("
+        in source
+    )
+    assert "scenario=company_scenario" in source
+    assert (
+        "target_return=percentage_to_domain("
+        in source
+    )
+    assert "years=int(company_years)" in source
+
+def test_company_analysis_separates_data_assumptions_results():
+    from inspect import getsource
+
+    from streamlit_app import render_company_search
+
+    source = getsource(render_company_search)
+
+    assumptions_position = source.index(
+        'st.subheader("Hip\\u00f3tesis del usuario")'
+    )
+    observed_position = source.index(
+        'st.header("Datos observados")'
+    )
+    results_position = source.index(
+        'st.header("Resultados calculados")'
+    )
+    execution_position = source.index(
+        "run_selected_company("
+    )
+
+    assert assumptions_position < execution_position
+    assert execution_position < observed_position
+    assert observed_position < results_position
+
+    assert source.index(
+        "render_onboarding_result("
+    ) > observed_position
+
+    assert source.index(
+        "render_coverage("
+    ) > observed_position
+
+    assert source.index(
+        "render_investment_result("
+    ) > results_position

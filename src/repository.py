@@ -756,6 +756,51 @@ def get_company_id_by_ticker_exchange(
     return row["company_id"]
 
 
+def list_active_companies(
+    connection: sqlite3.Connection,
+) -> tuple[CompanyRecord, ...]:
+    rows = connection.execute(
+        """
+        SELECT
+            company_id,
+            name,
+            ticker,
+            symbol,
+            isin,
+            country,
+            sector,
+            industry,
+            fundamental_profile,
+            currency,
+            exchange,
+            status
+        FROM companies
+        WHERE status = 'active'
+        ORDER BY
+            UPPER(name),
+            company_id
+        """
+    ).fetchall()
+
+    return tuple(
+        CompanyRecord(
+            company_id=row["company_id"],
+            name=row["name"],
+            ticker=row["ticker"],
+            symbol=row["symbol"],
+            isin=row["isin"],
+            country=row["country"],
+            sector=row["sector"],
+            industry=row["industry"],
+            fundamental_profile=row["fundamental_profile"],
+            currency=row["currency"],
+            exchange=row["exchange"],
+            status=row["status"],
+        )
+        for row in rows
+    )
+
+
 def get_company_by_id(
     connection: sqlite3.Connection,
     company_id: int,

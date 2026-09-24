@@ -23,7 +23,9 @@ from src.providers.yahoo_estimates import YahooEstimateProvider
 from src.providers.yahoo_fundamentals import (
     YahooFundamentalsProvider,
 )
+from src.models import CompanyRecord
 from src.radar_presentation import RadarPresentation
+from src.repository import list_active_companies
 from src.scenarios import ValuationScenario
 from src.streamlit_view import (
     build_radar_table,
@@ -36,7 +38,85 @@ from src.streamlit_view import (
     translate_onboarding_status,
     translate_onboarding_step,
 )
-from src.universe import IBEX_UNIVERSE
+from src.universe import CompanyConfig
+
+
+def percentage_to_domain(value: float) -> float:
+    """Convert a percentage entered in the UI to domain decimal form."""
+    return float(value) / 100.0
+
+
+def percentage_from_domain(value: float) -> float:
+    """Convert a domain decimal percentage to UI percentage form."""
+    return float(value) * 100.0
+
+
+def company_record_to_config(
+    company: CompanyRecord,
+) -> CompanyConfig | None:
+    required_values = (
+        company.ticker,
+        company.symbol,
+        company.exchange,
+        company.currency,
+    )
+
+    if any(
+        value is None or not value.strip()
+        for value in required_values
+    ):
+        return None
+
+    return CompanyConfig(
+        name=company.name,
+        ticker=company.ticker.strip(),
+        symbol=company.symbol.strip(),
+        exchange=company.exchange.strip(),
+        currency=company.currency.strip(),
+        fundamental_profile=company.fundamental_profile.value,
+        country=company.country,
+    )
+
+
+def load_radar_universe() -> tuple[CompanyConfig, ...]:
+    with managed_connection(settings.db_path) as connection:
+        companies = list_active_companies(connection)
+
+    return tuple(
+        config
+        for company in companies
+        if (config := company_record_to_config(company)) is not None
+    )
+
+
+def radar_company_key(
+    company: CompanyConfig,
+) -> str:
+    return (
+        f"{company.ticker.upper()}::"
+        f"{company.exchange.upper()}"
+    )
+
+
+def select_radar_companies(
+    universe: tuple[CompanyConfig, ...],
+    selected_keys: tuple[str, ...] | list[str],
+) -> tuple[CompanyConfig, ...]:
+    selected = set(selected_keys)
+
+    return tuple(
+        company
+        for company in universe
+        if radar_company_key(company) in selected
+    )
+
+
+def radar_company_label(company: CompanyConfig) -> str:
+    return (
+        f"{company.name} | "
+        f"{company.ticker} | "
+        f"{company.exchange}"
+    )
 
 
 def candidate_label(
@@ -317,15 +397,11 @@ def render_investment_result(result) -> None:
 def run_selected_company(
     candidate: CompanyCandidate,
     fundamental_profile: str,
+    scenario: ValuationScenario,
+    target_return: float,
+    years: int,
 ):
     today = date.today()
-
-    scenario = ValuationScenario(
-        name="Base",
-        eps_growth=0.05,
-        dividend_yield=0.02,
-        terminal_pe=15.0,
-    )
 
     with managed_connection(settings.db_path) as connection:
         return run_application_flow(
@@ -353,8 +429,8 @@ def run_selected_company(
             as_of_date=today,
             scenarios=(scenario,),
             estimate_date=today,
-            target_return=0.10,
-            years=5,
+            target_return=float(target_return),
+            years=int(years),
         )
 
 
@@ -493,10 +569,71 @@ def render_company_search() -> None:
             "selected_fundamental_profile"
         ] = profile
 
+        st.subheader("Hip\u00f3tesis del usuario")
+
         st.caption(
-            "Hip\u00f3tesis Base de diagn\u00f3stico: crecimiento del BPA 5%, "
-            "rentabilidad por dividendo 2%, PER terminal 15, "
-            "rentabilidad objetivo 10% y horizonte de 5 a\u00f1os."
+            "Estas hip\u00f3tesis no son datos observados. "
+            "Se utilizan para calcular el escenario de valoraci\u00f3n."
+        )
+
+        assumption_col1, assumption_col2 = st.columns(2)
+
+        with assumption_col1:
+            company_eps_growth_percent = st.number_input(
+                "Crecimiento anual del BPA (%)",
+                value=percentage_from_domain(0.05),
+                step=0.50,
+                format="%.2f",
+                key="company_eps_growth_percent",
+                help=financial_help("eps_growth"),
+            )
+
+            company_dividend_yield_percent = st.number_input(
+                "Rentabilidad por dividendo (%)",
+                value=percentage_from_domain(0.02),
+                step=0.25,
+                format="%.2f",
+                key="company_dividend_yield_percent",
+                help=financial_help("dividend_yield"),
+            )
+
+            company_terminal_pe = st.number_input(
+                "PER terminal",
+                value=15.0,
+                step=0.5,
+                min_value=0.01,
+                key="company_terminal_pe",
+                help=financial_help("terminal_pe"),
+            )
+
+        with assumption_col2:
+            company_target_return_percent = st.number_input(
+                "Rentabilidad anual objetivo (%)",
+                value=percentage_from_domain(0.10),
+                step=0.50,
+                format="%.2f",
+                key="company_target_return_percent",
+                help=financial_help("target_return"),
+            )
+
+            company_years = st.number_input(
+                "Horizonte en a\u00f1os",
+                value=5,
+                step=1,
+                min_value=1,
+                key="company_years",
+                help=financial_help("horizon"),
+            )
+
+        company_scenario = ValuationScenario(
+            name="Base",
+            eps_growth=percentage_to_domain(
+                company_eps_growth_percent
+            ),
+            dividend_yield=percentage_to_domain(
+                company_dividend_yield_percent
+            ),
+            terminal_pe=float(company_terminal_pe),
         )
 
         if st.button(
@@ -511,6 +648,11 @@ def render_company_search() -> None:
                     flow_result = run_selected_company(
                         candidate=enriched,
                         fundamental_profile=profile,
+                        scenario=company_scenario,
+                        target_return=percentage_to_domain(
+                            company_target_return_percent
+                        ),
+                        years=int(company_years),
                     )
             except Exception as exc:
                 st.error(
@@ -534,12 +676,29 @@ def render_company_search() -> None:
                 "en la base de datos local de an\u00e1lisis."
             )
 
+            st.header("Datos observados")
+
+            st.caption(
+                "Datos obtenidos y almacenados para la empresa, "
+                "incluida su cobertura disponible a la fecha "
+                "de analisis."
+            )
+
             render_onboarding_result(
                 flow_result.onboarding
             )
             render_coverage(
                 flow_result.coverage
             )
+
+            st.header("Resultados calculados")
+
+            st.caption(
+                "Resultados deterministas calculados a partir de "
+                "los datos observados y de las hipotesis definidas "
+                "por el usuario."
+            )
+
             render_investment_result(
                 flow_result
             )
@@ -669,19 +828,19 @@ def render_radar_page() -> None:
         ),
     )
 
-    eps_growth = st.sidebar.number_input(
-        "Crecimiento anual del BPA",
-        value=0.05,
-        step=0.01,
-        format="%.4f",
+    eps_growth_percent = st.sidebar.number_input(
+        "Crecimiento anual del BPA (%)",
+        value=percentage_from_domain(0.05),
+        step=0.50,
+        format="%.2f",
         help=financial_help("eps_growth"),
     )
 
-    dividend_yield = st.sidebar.number_input(
-        "Rentabilidad por dividendo",
-        value=0.02,
-        step=0.01,
-        format="%.4f",
+    dividend_yield_percent = st.sidebar.number_input(
+        "Rentabilidad por dividendo (%)",
+        value=percentage_from_domain(0.02),
+        step=0.25,
+        format="%.2f",
         help=financial_help("dividend_yield"),
     )
 
@@ -693,11 +852,11 @@ def render_radar_page() -> None:
         help=financial_help("terminal_pe"),
     )
 
-    target_return = st.sidebar.number_input(
-        "Rentabilidad anual objetivo",
-        value=0.10,
-        step=0.01,
-        format="%.4f",
+    target_return_percent = st.sidebar.number_input(
+        "Rentabilidad anual objetivo (%)",
+        value=percentage_from_domain(0.10),
+        step=0.50,
+        format="%.2f",
         help=financial_help("target_return"),
     )
 
@@ -720,43 +879,91 @@ def render_radar_page() -> None:
     )
 
     st.sidebar.caption(
-        "Los porcentajes se introducen como decimales: "
-        "0,05 equivale al 5% y 0,10 al 10%."
+        "Introduce los porcentajes en unidades naturales: "
+        "5,00 equivale al 5% y 10,00 al 10%."
+    )
+
+    radar_universe = load_radar_universe()
+
+    if not radar_universe:
+        st.title("Radar")
+        st.info(
+            "No hay empresas incorporadas con identidad suficiente "
+            "para ejecutar el radar. Incorpora primero una empresa "
+            "desde la seccion Empresas."
+        )
+        return
+
+    company_by_key = {
+        radar_company_key(company): company
+        for company in radar_universe
+    }
+    available_keys = tuple(company_by_key)
+
+    selected_keys = st.multiselect(
+        "Empresas del radar",
+        options=available_keys,
+        default=available_keys,
+        format_func=lambda key: radar_company_label(
+            company_by_key[key]
+        ),
+        help=(
+            "Selecciona las empresas incorporadas en la base de "
+            "datos que quieres comparar con las mismas hipotesis."
+        ),
+    )
+
+    selected_universe = select_radar_companies(
+        radar_universe,
+        selected_keys,
     )
 
     run_requested = st.sidebar.button(
         "Ejecutar radar",
         type="primary",
+        disabled=not selected_universe,
     )
 
     if not run_requested:
         st.title("Radar")
 
-        st.info(
-            "Define expl\u00edcitamente las hip\u00f3tesis "
-            "del radar en la barra lateral y ejecuta "
-            "el an\u00e1lisis determinista."
-        )
+        if not selected_universe:
+            st.info(
+                "Selecciona al menos una empresa para ejecutar "
+                "el radar."
+            )
+        else:
+            st.info(
+                "Selecciona las empresas, define las hipotesis "
+                "del radar en la barra lateral y ejecuta "
+                "el analisis determinista."
+            )
 
         return
 
     scenario = ValuationScenario(
         name=scenario_name,
-        eps_growth=float(eps_growth),
-        dividend_yield=float(dividend_yield),
+        eps_growth=percentage_to_domain(
+            eps_growth_percent
+        ),
+        dividend_yield=percentage_to_domain(
+            dividend_yield_percent
+        ),
         terminal_pe=float(terminal_pe),
     )
 
     try:
         result = run_dashboard_radar(
             db_path=settings.db_path,
-            universe=IBEX_UNIVERSE,
+            universe=selected_universe,
             as_of_date=as_of_date,
             scenarios=(scenario,),
             scenario_name=scenario_name,
             model_version="streamlit-m12",
             data_version="local-db",
-            target_return=float(target_return),
+            target_return=percentage_to_domain(
+                target_return_percent
+            ),
             years=int(years),
             low_net_debt_threshold=float(
                 low_net_debt_threshold
