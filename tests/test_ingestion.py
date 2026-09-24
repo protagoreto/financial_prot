@@ -304,6 +304,7 @@ class DummyFundamentalsProvider(
         self,
         company_id: int,
         symbol: str,
+        fundamental_profile: str = "operating",
     ) -> list[FinancialRecord]:
         return [
             FinancialRecord(
