@@ -1,0 +1,6 @@
+name,ticker,symbol,exchange,currency,fundamental_profile
+"Industria de Diseno Textil, S.A.",ITX,ITX.MC,BME,EUR,operating
+"Iberdrola, S.A.",IBE,IBE.MC,BME,EUR,operating
+"Repsol, S.A.",REP,REP.MC,BME,EUR,operating
+"Banco Bilbao Vizcaya Argentaria, S.A.",BBVA,BBVA.MC,BME,EUR,financial
+"Banco Santander, S.A.",SAN,SAN.MC,BME,EUR,financial

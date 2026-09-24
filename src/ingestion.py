@@ -21,8 +21,8 @@ def get_or_create_company(
         """
         SELECT company_id
         FROM companies
-        WHERE ticker = ?
-        AND exchange = ?
+        WHERE UPPER(ticker) = UPPER(?)
+        AND UPPER(exchange) = UPPER(?)
         """,
         (ticker, exchange),
     ).fetchone()
