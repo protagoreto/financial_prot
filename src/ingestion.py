@@ -13,6 +13,7 @@ def get_or_create_company(
     ticker: str,
     exchange: str,
     currency: str,
+    fundamental_profile: str = "operating",
 ) -> int:
     row = connection.execute(
         """
@@ -33,15 +34,17 @@ def get_or_create_company(
             name,
             ticker,
             exchange,
-            currency
+            currency,
+            fundamental_profile
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         (
             name,
             ticker,
             exchange,
             currency,
+            fundamental_profile,
         ),
     )
 

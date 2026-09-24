@@ -50,3 +50,18 @@ def test_company_config_is_immutable():
         immutable = True
 
     assert immutable
+
+
+def test_ibex_universe_declares_fundamental_profiles():
+    profiles = {
+        company.ticker: company.fundamental_profile
+        for company in IBEX_UNIVERSE
+    }
+
+    assert profiles == {
+        "ITX": "operating",
+        "IBE": "operating",
+        "REP": "operating",
+        "BBVA": "financial",
+        "SAN": "financial",
+    }

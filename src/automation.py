@@ -167,6 +167,9 @@ def update_prices(
             ticker=company.ticker,
             exchange=company.exchange,
             currency=company.currency,
+            fundamental_profile=(
+                company.fundamental_profile
+            ),
         )
 
         try:

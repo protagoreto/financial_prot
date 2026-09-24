@@ -718,6 +718,7 @@ def get_company_by_id(
             country,
             sector,
             industry,
+            fundamental_profile,
             currency,
             exchange,
             status
@@ -738,6 +739,9 @@ def get_company_by_id(
         country=row["country"],
         sector=row["sector"],
         industry=row["industry"],
+        fundamental_profile=row[
+            "fundamental_profile"
+        ],
         currency=row["currency"],
         exchange=row["exchange"],
         status=row["status"],

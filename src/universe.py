@@ -8,6 +8,7 @@ class CompanyConfig:
     symbol: str
     exchange: str
     currency: str
+    fundamental_profile: str = "operating"
 
 
 IBEX_UNIVERSE: tuple[CompanyConfig, ...] = (
@@ -38,6 +39,7 @@ IBEX_UNIVERSE: tuple[CompanyConfig, ...] = (
         symbol="BBVA.MC",
         exchange="BME",
         currency="EUR",
+        fundamental_profile="financial",
     ),
     CompanyConfig(
         name="Banco Santander, S.A.",
@@ -45,5 +47,6 @@ IBEX_UNIVERSE: tuple[CompanyConfig, ...] = (
         symbol="SAN.MC",
         exchange="BME",
         currency="EUR",
+        fundamental_profile="financial",
     ),
 )

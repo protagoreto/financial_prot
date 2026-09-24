@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS companies (
     country TEXT,
     sector TEXT,
     industry TEXT,
+    fundamental_profile TEXT NOT NULL
+        DEFAULT 'operating'
+        CHECK (
+            fundamental_profile IN (
+                'operating',
+                'financial'
+            )
+        ),
     currency TEXT,
     exchange TEXT,
     status TEXT NOT NULL DEFAULT 'active',
@@ -323,6 +331,28 @@ def initialize_database(db_path: Path) -> None:
     with connect(db_path) as connection:
         connection.executescript(SCHEMA)
 
+        company_columns = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(companies)"
+            )
+        }
+
+        if "fundamental_profile" not in company_columns:
+            connection.execute(
+                '''
+                ALTER TABLE companies
+                ADD COLUMN fundamental_profile TEXT NOT NULL
+                    DEFAULT 'operating'
+                    CHECK (
+                        fundamental_profile IN (
+                            'operating',
+                            'financial'
+                        )
+                    )
+                '''
+            )
+
         connection.execute(
             """
             INSERT OR REPLACE INTO schema_meta(
@@ -333,7 +363,7 @@ def initialize_database(db_path: Path) -> None:
             """,
             (
                 "schema_version",
-                "0.5.0",
+                "0.6.0",
             ),
         )
 

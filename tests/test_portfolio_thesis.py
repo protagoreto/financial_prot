@@ -316,7 +316,7 @@ def test_unknown_company_is_rejected_by_foreign_key(
             )
 
 
-def test_schema_version_is_0_5_0(
+def test_schema_version_is_0_6_0(
     tmp_path: Path,
 ):
     db_path = tmp_path / "test.sqlite"
@@ -331,4 +331,4 @@ def test_schema_version_is_0_5_0(
             """
         ).fetchone()
 
-    assert row["value"] == "0.5.0"
+    assert row["value"] == "0.6.0"

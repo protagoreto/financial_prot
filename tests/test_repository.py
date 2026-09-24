@@ -1275,3 +1275,46 @@ def test_get_price_on_or_after_returns_none_after_history(
         )
 
     assert price is None
+
+
+def test_get_company_by_id_returns_fundamental_profile(
+    tmp_path: Path,
+):
+    from src.models import FundamentalProfile
+    from src.repository import get_company_by_id
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO companies (
+                name,
+                ticker,
+                exchange,
+                currency,
+                fundamental_profile
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "Example Bank",
+                "BANK",
+                "BME",
+                "EUR",
+                "financial",
+            ),
+        )
+        connection.commit()
+
+        company = get_company_by_id(
+            connection,
+            cursor.lastrowid,
+        )
+
+    assert company is not None
+    assert (
+        company.fundamental_profile
+        == FundamentalProfile.FINANCIAL
+    )

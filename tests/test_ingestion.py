@@ -407,3 +407,31 @@ def test_create_source_with_full_provenance(
     assert row["publication_date"] == "2026-03-11"
     assert row["document_type"] == "annual_results"
     assert row["confidence"] == "primary"
+
+
+def test_get_or_create_company_stores_fundamental_profile(
+    tmp_path,
+):
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        company_id = get_or_create_company(
+            connection=connection,
+            name="Example Bank",
+            ticker="BANK",
+            exchange="BME",
+            currency="EUR",
+            fundamental_profile="financial",
+        )
+
+        row = connection.execute(
+            """
+            SELECT fundamental_profile
+            FROM companies
+            WHERE company_id = ?
+            """,
+            (company_id,),
+        ).fetchone()
+
+    assert row["fundamental_profile"] == "financial"

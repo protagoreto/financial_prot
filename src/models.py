@@ -16,6 +16,11 @@ from src.metrics import (
 )
 
 
+class FundamentalProfile(str, Enum):
+    OPERATING = "operating"
+    FINANCIAL = "financial"
+
+
 class CompanyRecord(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True
@@ -28,6 +33,9 @@ class CompanyRecord(BaseModel):
     country: Optional[str] = None
     sector: Optional[str] = None
     industry: Optional[str] = None
+    fundamental_profile: FundamentalProfile = (
+        FundamentalProfile.OPERATING
+    )
     currency: Optional[str] = None
     exchange: Optional[str] = None
     status: str = Field(min_length=1)

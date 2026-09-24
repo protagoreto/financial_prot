@@ -32,6 +32,9 @@ def run(
                 ticker=company.ticker,
                 exchange=company.exchange,
                 currency=company.currency,
+                fundamental_profile=(
+                    company.fundamental_profile
+                ),
             )
 
             count = ingest_prices_incremental(
