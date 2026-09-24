@@ -3,12 +3,16 @@ import sqlite3
 
 from src.models import DividendRecord, EstimateRecord, FinancialRecord, PriceRecord
 from src.providers.base import PriceProvider
+from src.providers.publication_dates_base import PublicationDateProvider
 from src.repository import (
+    insert_publication_date,
     insert_dividend_record,
     insert_estimate_record,
     insert_financial_record,
     insert_price_record,
 )
+
+
 def get_or_create_company(
     connection: sqlite3.Connection,
     name: str,
@@ -412,3 +416,69 @@ def ingest_dividends(
         )
 
     return len(new_records)
+
+
+def ingest_publication_dates(
+    connection: sqlite3.Connection,
+    provider: PublicationDateProvider,
+    company_id: int,
+    symbol: str,
+) -> int:
+    records = provider.get_publication_dates(
+        company_id=company_id,
+        symbol=symbol,
+    )
+
+    if not records:
+        return 0
+
+    inserted = 0
+
+    for record in records:
+        if record.company_id != company_id:
+            raise ValueError(
+                "Publication-date provider returned "
+                "a different company_id"
+            )
+
+        existing = connection.execute(
+            """
+            SELECT publication_date_id
+            FROM publication_dates
+            WHERE company_id = ?
+            AND period_end = ?
+            AND period_type = ?
+            AND publication_date = ?
+            """,
+            (
+                record.company_id,
+                record.period_end.isoformat(),
+                record.period_type.value,
+                record.publication_date.isoformat(),
+            ),
+        ).fetchone()
+
+        if existing is not None:
+            continue
+
+        source_id = create_source(
+            connection=connection,
+            provider=provider.name,
+            document_type="publication_date",
+            url=record.source_url,
+            publication_date=record.publication_date,
+            confidence="primary",
+        )
+
+        insert_publication_date(
+            connection=connection,
+            company_id=record.company_id,
+            period_end=record.period_end,
+            period_type=record.period_type,
+            publication_date=record.publication_date,
+            source_id=source_id,
+        )
+
+        inserted += 1
+
+    return inserted
