@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS companies (
     company_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     ticker TEXT,
+    symbol TEXT,
     isin TEXT,
     country TEXT,
     sector TEXT,
@@ -353,6 +354,14 @@ def initialize_database(db_path: Path) -> None:
                 '''
             )
 
+        if "symbol" not in company_columns:
+            connection.execute(
+                """
+                ALTER TABLE companies
+                ADD COLUMN symbol TEXT
+                """
+            )
+
         connection.execute(
             """
             INSERT OR REPLACE INTO schema_meta(
@@ -363,7 +372,7 @@ def initialize_database(db_path: Path) -> None:
             """,
             (
                 "schema_version",
-                "0.6.0",
+                "0.7.0",
             ),
         )
 

@@ -16,10 +16,19 @@ def get_or_create_company(
     exchange: str,
     currency: str,
     fundamental_profile: str = "operating",
+    symbol: str | None = None,
 ) -> int:
+    normalized_symbol = (
+        symbol.strip()
+        if symbol is not None and symbol.strip()
+        else None
+    )
+
     row = connection.execute(
         """
-        SELECT company_id
+        SELECT
+            company_id,
+            symbol
         FROM companies
         WHERE UPPER(ticker) = UPPER(?)
         AND UPPER(exchange) = UPPER(?)
@@ -28,6 +37,38 @@ def get_or_create_company(
     ).fetchone()
 
     if row:
+        if normalized_symbol is not None:
+            existing_symbol = row["symbol"]
+
+            if (
+                existing_symbol is not None
+                and existing_symbol.strip()
+                and existing_symbol.casefold()
+                != normalized_symbol.casefold()
+            ):
+                raise ValueError(
+                    "Existing company has a different symbol: "
+                    f"{existing_symbol!r} != "
+                    f"{normalized_symbol!r}"
+                )
+
+            if (
+                existing_symbol is None
+                or not existing_symbol.strip()
+            ):
+                connection.execute(
+                    """
+                    UPDATE companies
+                    SET symbol = ?
+                    WHERE company_id = ?
+                    """,
+                    (
+                        normalized_symbol,
+                        row["company_id"],
+                    ),
+                )
+                connection.commit()
+
         return row["company_id"]
 
     cursor = connection.execute(
@@ -35,15 +76,17 @@ def get_or_create_company(
         INSERT INTO companies (
             name,
             ticker,
+            symbol,
             exchange,
             currency,
             fundamental_profile
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             name,
             ticker,
+            normalized_symbol,
             exchange,
             currency,
             fundamental_profile,

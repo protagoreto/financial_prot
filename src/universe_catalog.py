@@ -200,9 +200,21 @@ def sync_universe_catalog(
                 fundamental_profile=(
                     company.fundamental_profile
                 ),
+                symbol=company.symbol,
             )
             created += 1
         else:
+            get_or_create_company(
+                connection=connection,
+                name=company.name,
+                ticker=company.ticker,
+                exchange=company.exchange,
+                currency=company.currency,
+                fundamental_profile=(
+                    company.fundamental_profile
+                ),
+                symbol=company.symbol,
+            )
             existing += 1
 
     return UniverseSyncResult(

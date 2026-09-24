@@ -126,9 +126,19 @@ def test_register_company_candidate_is_idempotent(
             "SELECT COUNT(*) AS count FROM companies"
         ).fetchone()["count"]
 
+        row = connection.execute(
+            """
+            SELECT symbol
+            FROM companies
+            WHERE company_id = ?
+            """,
+            (first_id,),
+        ).fetchone()
+
     assert first_id == second_id
     assert first == second
     assert count == 1
+    assert row["symbol"] == "ABC.MC"
 
 
 def test_registration_requires_currency(

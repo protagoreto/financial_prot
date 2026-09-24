@@ -187,3 +187,150 @@ def test_sync_matches_identity_case_insensitively(
     assert result.created == 0
     assert result.existing == 1
     assert count == 1
+
+
+def test_sync_universe_catalog_persists_symbol(tmp_path):
+    from src.db import connect, initialize_database
+    from src.universe import CompanyConfig
+
+    db_path = tmp_path / "symbol.sqlite"
+    initialize_database(db_path)
+
+    companies = (
+        CompanyConfig(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            symbol="MSFT",
+            exchange="NMS",
+            currency="USD",
+            fundamental_profile="operating",
+        ),
+    )
+
+    with connect(db_path) as connection:
+        result = sync_universe_catalog(
+            connection,
+            companies,
+        )
+
+        row = connection.execute(
+            """
+            SELECT symbol
+            FROM companies
+            WHERE ticker = 'MSFT'
+            AND exchange = 'NMS'
+            """
+        ).fetchone()
+
+    assert result.created == 1
+    assert row["symbol"] == "MSFT"
+
+
+def test_sync_universe_catalog_backfills_symbol(tmp_path):
+    from src.db import connect, initialize_database
+    from src.universe import CompanyConfig
+
+    db_path = tmp_path / "backfill_symbol.sqlite"
+    initialize_database(db_path)
+
+    companies = (
+        CompanyConfig(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            symbol="MSFT",
+            exchange="NMS",
+            currency="USD",
+            fundamental_profile="operating",
+        ),
+    )
+
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO companies (
+                name,
+                ticker,
+                exchange,
+                currency
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "Microsoft Corporation",
+                "MSFT",
+                "NMS",
+                "USD",
+            ),
+        )
+        connection.commit()
+
+        result = sync_universe_catalog(
+            connection,
+            companies,
+        )
+
+        row = connection.execute(
+            """
+            SELECT symbol
+            FROM companies
+            WHERE ticker = 'MSFT'
+            AND exchange = 'NMS'
+            """
+        ).fetchone()
+
+    assert result.existing == 1
+    assert row["symbol"] == "MSFT"
+
+
+def test_sync_universe_catalog_rejects_symbol_conflict(
+    tmp_path,
+):
+    import pytest
+
+    from src.db import connect, initialize_database
+    from src.universe import CompanyConfig
+
+    db_path = tmp_path / "symbol_conflict.sqlite"
+    initialize_database(db_path)
+
+    companies = (
+        CompanyConfig(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            symbol="MSFT",
+            exchange="NMS",
+            currency="USD",
+            fundamental_profile="operating",
+        ),
+    )
+
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO companies (
+                name,
+                ticker,
+                symbol,
+                exchange,
+                currency
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "Microsoft Corporation",
+                "MSFT",
+                "WRONG",
+                "NMS",
+                "USD",
+            ),
+        )
+        connection.commit()
+
+        with pytest.raises(
+            ValueError,
+            match="different symbol",
+        ):
+            sync_universe_catalog(
+                connection,
+                companies,
+            )

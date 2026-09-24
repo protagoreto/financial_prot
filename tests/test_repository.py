@@ -1318,3 +1318,38 @@ def test_get_company_by_id_returns_fundamental_profile(
         company.fundamental_profile
         == FundamentalProfile.FINANCIAL
     )
+
+
+def test_get_company_by_id_returns_symbol(tmp_path: Path):
+    db_path = tmp_path / "company_symbol.sqlite"
+    initialize_database(db_path)
+
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO companies (
+                name,
+                ticker,
+                symbol,
+                exchange,
+                currency
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "Microsoft Corporation",
+                "MSFT",
+                "MSFT",
+                "NMS",
+                "USD",
+            ),
+        )
+        connection.commit()
+
+        company = get_company_by_id(
+            connection=connection,
+            company_id=cursor.lastrowid,
+        )
+
+    assert company is not None
+    assert company.symbol == "MSFT"

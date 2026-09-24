@@ -97,6 +97,7 @@ def register_company_candidate(
         fundamental_profile=(
             company.fundamental_profile
         ),
+        symbol=company.symbol,
     )
 
     return company_id, company

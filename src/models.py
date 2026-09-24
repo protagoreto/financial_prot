@@ -29,6 +29,7 @@ class CompanyRecord(BaseModel):
     company_id: int = Field(gt=0)
     name: str = Field(min_length=1)
     ticker: Optional[str] = None
+    symbol: Optional[str] = None
     isin: Optional[str] = None
     country: Optional[str] = None
     sector: Optional[str] = None

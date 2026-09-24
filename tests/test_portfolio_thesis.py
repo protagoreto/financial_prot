@@ -331,4 +331,4 @@ def test_schema_version_is_0_6_0(
             """
         ).fetchone()
 
-    assert row["value"] == "0.6.0"
+    assert row["value"] == "0.7.0"
