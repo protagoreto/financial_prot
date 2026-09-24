@@ -1,9 +1,10 @@
 from datetime import date, datetime, timedelta, timezone
 import sqlite3
 
-from src.models import FinancialRecord, PriceRecord
+from src.models import EstimateRecord, FinancialRecord, PriceRecord
 from src.providers.base import PriceProvider
 from src.repository import (
+    insert_estimate_record,
     insert_financial_record,
     insert_price_record,
 )
@@ -253,3 +254,56 @@ def ingest_financials(
         processed += 1
 
     return processed
+
+def ingest_forward_eps_estimate(
+    connection: sqlite3.Connection,
+    provider,
+    company_id: int,
+    symbol: str,
+    estimate_date: date | None = None,
+) -> int:
+    record = provider.get_forward_eps_estimate(
+        company_id=company_id,
+        symbol=symbol,
+        estimate_date=estimate_date,
+    )
+
+    existing = connection.execute(
+        """
+        SELECT estimate_id
+        FROM estimates
+        WHERE company_id = ?
+        AND metric = ?
+        AND fiscal_period_end = ?
+        AND estimate_date = ?
+        """,
+        (
+            record.company_id,
+            record.metric.value,
+            record.fiscal_period_end.isoformat(),
+            record.estimate_date.isoformat(),
+        ),
+    ).fetchone()
+
+    if existing is not None:
+        return existing["estimate_id"]
+
+    source_id = create_source(
+        connection=connection,
+        provider=provider.name,
+        document_type="forward_estimate",
+        publication_date=record.estimate_date,
+        confidence="secondary",
+    )
+
+    enriched_record = EstimateRecord(
+        **record.model_dump(
+            exclude={"source_id"}
+        ),
+        source_id=source_id,
+    )
+
+    return insert_estimate_record(
+        connection,
+        enriched_record,
+    )
