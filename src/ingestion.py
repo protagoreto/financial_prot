@@ -1,9 +1,10 @@
 from datetime import date, datetime, timedelta, timezone
 import sqlite3
 
-from src.models import EstimateRecord, FinancialRecord, PriceRecord
+from src.models import DividendRecord, EstimateRecord, FinancialRecord, PriceRecord
 from src.providers.base import PriceProvider
 from src.repository import (
+    insert_dividend_record,
     insert_estimate_record,
     insert_financial_record,
     insert_price_record,
@@ -307,3 +308,62 @@ def ingest_forward_eps_estimate(
         connection,
         enriched_record,
     )
+
+def ingest_dividends(
+    connection: sqlite3.Connection,
+    provider,
+    company_id: int,
+    symbol: str,
+    currency: str,
+) -> int:
+    records = provider.get_dividends(
+        company_id=company_id,
+        symbol=symbol,
+        currency=currency,
+    )
+
+    new_records = []
+
+    for record in records:
+        existing = connection.execute(
+            """
+            SELECT dividend_id
+            FROM dividends
+            WHERE company_id = ?
+            AND ex_date = ?
+            AND amount = ?
+            """,
+            (
+                record.company_id,
+                record.ex_date.isoformat(),
+                record.amount,
+            ),
+        ).fetchone()
+
+        if existing is None:
+            new_records.append(record)
+
+    if not new_records:
+        return 0
+
+    source_id = create_source(
+        connection=connection,
+        provider=provider.name,
+        document_type="dividend_history",
+        confidence="secondary",
+    )
+
+    for record in new_records:
+        enriched_record = DividendRecord(
+            **record.model_dump(
+                exclude={"source_id"}
+            ),
+            source_id=source_id,
+        )
+
+        insert_dividend_record(
+            connection,
+            enriched_record,
+        )
+
+    return len(new_records)

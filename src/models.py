@@ -109,6 +109,27 @@ class EstimateRecord(BaseModel):
     )
 
 
+class DividendRecord(BaseModel):
+    model_config = ConfigDict(
+        str_strip_whitespace=True
+    )
+
+    company_id: int = Field(gt=0)
+
+    ex_date: date
+    payment_date: Optional[date] = None
+
+    amount: float = Field(gt=0)
+    currency: Optional[str] = None
+
+    dividend_type: Optional[str] = None
+
+    source_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+    )
+
+
 class PriceRecord(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True

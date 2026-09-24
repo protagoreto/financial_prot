@@ -5,6 +5,7 @@ from datetime import date
 from src.models import (
     AnalysisRunRecord,
     CompanyRecord,
+    DividendRecord,
     EstimateRecord,
     FinancialRecord,
     PortfolioThesis,
@@ -14,6 +15,60 @@ from src.models import (
 
 from src.metrics import FinancialMetric, PeriodType
 
+
+
+def insert_dividend_record(
+    connection: sqlite3.Connection,
+    record: DividendRecord,
+) -> int:
+    existing = connection.execute(
+        """
+        SELECT dividend_id
+        FROM dividends
+        WHERE company_id = ?
+        AND ex_date = ?
+        AND amount = ?
+        """,
+        (
+            record.company_id,
+            record.ex_date.isoformat(),
+            record.amount,
+        ),
+    ).fetchone()
+
+    if existing is not None:
+        return existing["dividend_id"]
+
+    cursor = connection.execute(
+        """
+        INSERT INTO dividends (
+            company_id,
+            ex_date,
+            payment_date,
+            amount,
+            currency,
+            dividend_type,
+            source_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.company_id,
+            record.ex_date.isoformat(),
+            (
+                record.payment_date.isoformat()
+                if record.payment_date is not None
+                else None
+            ),
+            record.amount,
+            record.currency,
+            record.dividend_type,
+            record.source_id,
+        ),
+    )
+
+    connection.commit()
+    return cursor.lastrowid
 
 def insert_financial_record(
     connection: sqlite3.Connection,
