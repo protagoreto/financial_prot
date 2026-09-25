@@ -35,6 +35,7 @@ from src.streamlit_view import (
     format_percentage,
     translate_assessment_level,
     translate_availability,
+    translate_fundamental_reason,
     translate_onboarding_status,
     translate_onboarding_step,
 )
@@ -475,6 +476,8 @@ def render_investment_result(result) -> None:
     fundamentals = analysis.fundamentals
 
     if fundamentals is not None:
+        st.markdown("#### Diagn\u00f3stico fundamental")
+
         col1, col2, col3 = st.columns(3)
 
         col1.metric(
@@ -498,6 +501,81 @@ def render_investment_result(result) -> None:
             else "No",
             help=financial_help("value_trap"),
         )
+
+        st.markdown("##### Evidencia utilizada por el motor")
+
+        evidence_col1, evidence_col2 = st.columns(2)
+
+        quality_reasons = tuple(
+            translate_fundamental_reason(reason)
+            for reason in fundamentals.quality_reasons
+        )
+        risk_reasons = tuple(
+            translate_fundamental_reason(reason)
+            for reason in fundamentals.risk_reasons
+        )
+        value_trap_reasons = tuple(
+            translate_fundamental_reason(reason)
+            for reason in fundamentals.value_trap_reasons
+        )
+
+        with evidence_col1:
+            st.markdown("**Calidad**")
+            st.caption(
+                "Se\u00f1ales positivas: "
+                f"{fundamentals.positive_quality_signals} / "
+                f"{fundamentals.known_quality_signals}"
+            )
+
+            if quality_reasons:
+                for reason in quality_reasons:
+                    st.write(f"- {reason}")
+            else:
+                st.write(
+                    "No hay se\u00f1ales de calidad conocidas."
+                )
+
+        with evidence_col2:
+            st.markdown("**Riesgo**")
+            st.caption(
+                "Se\u00f1ales de riesgo activas: "
+                f"{fundamentals.active_risk_signals} / "
+                f"{fundamentals.known_risk_signals}"
+            )
+
+            if risk_reasons:
+                for reason in risk_reasons:
+                    st.write(f"- {reason}")
+            else:
+                st.write(
+                    "No hay se\u00f1ales de deterioro activas."
+                )
+
+        st.markdown("##### Trampa de valor")
+
+        if fundamentals.value_trap_warning:
+            st.write(
+                "La alerta de trampa de valor est\u00e1 activa."
+            )
+
+            for reason in value_trap_reasons:
+                st.write(f"- {reason}")
+
+        elif value_trap_reasons:
+            st.write(
+                "Hay se\u00f1ales de deterioro, pero no alcanzan "
+                "el umbral del motor para activar la alerta de "
+                "trampa de valor."
+            )
+
+            for reason in value_trap_reasons:
+                st.write(f"- {reason}")
+
+        else:
+            st.write(
+                "No hay se\u00f1ales de deterioro asociadas a "
+                "una posible trampa de valor."
+            )
 
 
 def run_selected_company(

@@ -247,6 +247,38 @@ def translate_availability(value: str) -> str:
     return labels.get(value, value)
 
 
+FUNDAMENTAL_REASON_LABELS = {
+    "positive_net_income": "Beneficio neto positivo",
+    "positive_free_cash_flow": "Flujo de caja libre positivo",
+    "positive_roe": "ROE positivo",
+    "low_net_debt": "Deuda neta contenida",
+    "positive_roa": "ROA positivo",
+    "positive_tangible_book_growth": (
+        "Crecimiento positivo del valor contable tangible"
+    ),
+    "revenue_decline": "Descenso de ingresos",
+    "eps_decline": "Descenso del BPA",
+    "free_cash_flow_decline": (
+        "Descenso del flujo de caja libre"
+    ),
+    "margin_contraction": "Contracci\u00f3n de m\u00e1rgenes",
+    "share_dilution": "Diluci\u00f3n de acciones",
+    "net_interest_income_decline": (
+        "Descenso del margen de intereses"
+    ),
+    "tangible_book_decline": (
+        "Descenso del valor contable tangible"
+    ),
+}
+
+
+def translate_fundamental_reason(reason: str) -> str:
+    return FUNDAMENTAL_REASON_LABELS.get(
+        reason,
+        reason.replace("_", " ").capitalize(),
+    )
+
+
 def translate_assessment_level(value: str) -> str:
     labels = {
         "strong": "Fuerte",
