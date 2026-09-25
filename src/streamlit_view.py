@@ -125,6 +125,27 @@ FINANCIAL_HELP = {
         "BPA estimado para el pr\u00f3ximo ejercicio fiscal disponible. "
         "BPA significa beneficio por acci\u00f3n."
     ),
+    "forward_earnings_yield": (
+        "BPA estimado dividido por el precio observado. "
+        "Es una rentabilidad de beneficios impl\u00edcita, "
+        "no la rentabilidad total esperada de la inversi\u00f3n."
+    ),
+    "price_date": (
+        "Fecha del precio utilizado en la valoraci\u00f3n."
+    ),
+    "estimate_date": (
+        "Fecha de la estimaci\u00f3n de BPA utilizada. "
+        "Permite comprobar qu\u00e9 informaci\u00f3n estaba "
+        "disponible en la fecha de an\u00e1lisis."
+    ),
+    "analyst_count": (
+        "N\u00famero de analistas asociado a la estimaci\u00f3n "
+        "de BPA, cuando el proveedor lo facilita."
+    ),
+    "as_of_date": (
+        "Fecha hist\u00f3rica a la que se reconstruye el "
+        "an\u00e1lisis sin utilizar informaci\u00f3n posterior."
+    ),
     "forward_pe": (
         "PER estimado: precio actual dividido por el BPA estimado. "
         "Un PER de 20 equivale aproximadamente a pagar 20 veces "

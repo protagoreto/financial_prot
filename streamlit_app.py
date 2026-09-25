@@ -276,6 +276,8 @@ def render_investment_result(result) -> None:
     if valuation is not None:
         snapshot = valuation.snapshot
 
+        st.markdown("#### Datos de mercado y estimaci\u00f3n")
+
         col1, col2, col3, col4 = st.columns(4)
 
         col1.metric(
@@ -298,9 +300,54 @@ def render_investment_result(result) -> None:
             help=financial_help("forward_pe"),
         )
         col4.metric(
+            "Earnings yield",
+            (
+                format_percentage(
+                    snapshot.forward_earnings_yield
+                )
+                if snapshot.forward_earnings_yield is not None
+                else "N/D"
+            ),
+            help=financial_help(
+                "forward_earnings_yield"
+            ),
+        )
+
+        st.markdown("#### Trazabilidad")
+
+        trace_col1, trace_col2, trace_col3 = st.columns(3)
+
+        trace_col1.metric(
+            "Fecha del precio",
+            snapshot.price_date.isoformat(),
+            help=financial_help("price_date"),
+        )
+        trace_col2.metric(
             "Ejercicio BPA",
             snapshot.fiscal_period_end.isoformat(),
             help=financial_help("eps_period"),
+        )
+        trace_col3.metric(
+            "Fecha de estimaci\u00f3n",
+            snapshot.estimate_date.isoformat(),
+            help=financial_help("estimate_date"),
+        )
+
+        trace_col4, trace_col5 = st.columns(2)
+
+        trace_col4.metric(
+            "Analistas",
+            (
+                str(snapshot.analyst_count)
+                if snapshot.analyst_count is not None
+                else "N/D"
+            ),
+            help=financial_help("analyst_count"),
+        )
+        trace_col5.metric(
+            "Fecha PIT del an\u00e1lisis",
+            snapshot.as_of_date.isoformat(),
+            help=financial_help("as_of_date"),
         )
 
         scenario_rows = [

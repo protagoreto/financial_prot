@@ -612,3 +612,30 @@ def test_company_analysis_separates_data_assumptions_results():
     assert source.index(
         "render_investment_result("
     ) > results_position
+
+def test_investment_result_exposes_valuation_traceability():
+    from inspect import getsource
+
+    from streamlit_app import render_investment_result
+
+    source = getsource(render_investment_result)
+
+    assert "Datos de mercado y estimaci\\u00f3n" in source
+    assert '"Earnings yield"' in source
+    assert "snapshot.forward_earnings_yield" in source
+
+    assert '"#### Trazabilidad"' in source
+    assert '"Fecha del precio"' in source
+    assert "snapshot.price_date.isoformat()" in source
+
+    assert '"Ejercicio BPA"' in source
+    assert "snapshot.fiscal_period_end.isoformat()" in source
+
+    assert '"Fecha de estimaci\\u00f3n"' in source
+    assert "snapshot.estimate_date.isoformat()" in source
+
+    assert '"Analistas"' in source
+    assert "snapshot.analyst_count" in source
+
+    assert '"Fecha PIT del an\\u00e1lisis"' in source
+    assert "snapshot.as_of_date.isoformat()" in source
