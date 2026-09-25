@@ -350,6 +350,65 @@ def render_investment_result(result) -> None:
             help=financial_help("as_of_date"),
         )
 
+        st.markdown("#### Lectura de la valoraci\u00f3n")
+
+        if len(valuation.scenarios) == 1:
+            scenario = valuation.scenarios[0]
+
+            value_col1, value_col2, value_col3, value_col4 = (
+                st.columns(4)
+            )
+
+            value_col1.metric(
+                "Precio actual",
+                format_decimal(snapshot.price),
+                help=financial_help("price"),
+            )
+            value_col2.metric(
+                "Rentabilidad esperada",
+                format_percentage(
+                    scenario.expected_return
+                ),
+                help=financial_help("expected_return"),
+            )
+            value_col3.metric(
+                "Precio requerido",
+                format_decimal(
+                    scenario.required_price
+                ),
+                help=financial_help("required_price"),
+            )
+            value_col4.metric(
+                "Margen sobre precio",
+                format_percentage(
+                    scenario.price_margin
+                ),
+                help=financial_help("price_margin"),
+            )
+
+            st.markdown("##### Exigencias del escenario")
+
+            requirement_col1, requirement_col2 = st.columns(2)
+
+            requirement_col1.metric(
+                "Crecimiento BPA: supuesto / requerido",
+                (
+                    f"{format_percentage(scenario.eps_growth)} / "
+                    f"{format_percentage(scenario.required_eps_growth)}"
+                ),
+                help=financial_help("required_eps_growth"),
+            )
+            requirement_col2.metric(
+                "PER: terminal / requerido",
+                (
+                    f"{format_decimal(scenario.terminal_pe)} / "
+                    f"{format_decimal(scenario.required_pe)}"
+                ),
+                help=financial_help("required_pe"),
+            )
+
+        st.markdown("##### Detalle auditable")
+
         scenario_rows = [
             {
                 "Escenario": scenario.name,

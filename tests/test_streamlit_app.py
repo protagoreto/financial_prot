@@ -639,3 +639,36 @@ def test_investment_result_exposes_valuation_traceability():
 
     assert '"Fecha PIT del an\\u00e1lisis"' in source
     assert "snapshot.as_of_date.isoformat()" in source
+
+def test_investment_result_exposes_interpretable_valuation():
+    from inspect import getsource
+
+    from streamlit_app import render_investment_result
+
+    source = getsource(render_investment_result)
+
+    assert "Lectura de la valoraci\\u00f3n" in source
+    assert "len(valuation.scenarios) == 1" in source
+    assert "scenario = valuation.scenarios[0]" in source
+
+    assert '"Precio actual"' in source
+    assert "snapshot.price" in source
+
+    assert '"Rentabilidad esperada"' in source
+    assert "scenario.expected_return" in source
+
+    assert '"Precio requerido"' in source
+    assert "scenario.required_price" in source
+
+    assert '"Margen sobre precio"' in source
+    assert "scenario.price_margin" in source
+
+    assert "Exigencias del escenario" in source
+    assert "scenario.eps_growth" in source
+    assert "scenario.required_eps_growth" in source
+    assert "scenario.terminal_pe" in source
+    assert "scenario.required_pe" in source
+
+    assert "Detalle auditable" in source
+    assert "scenario_rows = [" in source
+    assert "st.dataframe(" in source
