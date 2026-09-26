@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 
 from src.dashboard import DashboardRadarResult
 from src.radar_presentation import RadarPresentation
@@ -535,10 +535,10 @@ def test_run_selected_company_receives_explicit_assumptions():
 
     source = getsource(run_selected_company)
 
-    assert "scenario: ValuationScenario" in source
+    assert "scenarios: tuple[ValuationScenario, ...]" in source
     assert "target_return: float" in source
     assert "years: int" in source
-    assert "scenarios=(scenario,)" in source
+    assert "scenarios=scenarios" in source
     assert "target_return=float(target_return)" in source
     assert "years=int(years)" in source
 
@@ -556,9 +556,15 @@ def test_company_analysis_uses_explicit_user_assumptions():
     source = getsource(render_company_search)
 
     assert 'st.subheader("Hip\\u00f3tesis del usuario")' in source
+    assert "scenario_inputs = (" in source
+    assert '("Conservador", "conservative")' in source
+    assert '("Base", "base")' in source
+    assert '("Optimista", "optimistic")' in source
     assert '"Crecimiento anual del BPA (%)"' in source
     assert '"Rentabilidad por dividendo (%)"' in source
     assert '"PER terminal"' in source
+    assert "company_target_return_percent = st.number_input(" in source
+    assert "company_years = st.number_input(" in source
     assert '"Rentabilidad anual objetivo (%)"' in source
     assert '"Horizonte en a\\u00f1os"' in source
 
@@ -570,7 +576,8 @@ def test_company_analysis_uses_explicit_user_assumptions():
         "dividend_yield=percentage_to_domain("
         in source
     )
-    assert "scenario=company_scenario" in source
+    assert "company_scenarios = tuple(company_scenarios)" in source
+    assert "scenarios=company_scenarios" in source
     assert (
         "target_return=percentage_to_domain("
         in source
@@ -648,8 +655,9 @@ def test_investment_result_exposes_interpretable_valuation():
     source = getsource(render_investment_result)
 
     assert "Lectura de la valoraci\\u00f3n" in source
-    assert "len(valuation.scenarios) == 1" in source
-    assert "scenario = valuation.scenarios[0]" in source
+    assert "for scenario in valuation.scenarios:" in source
+    assert "len(valuation.scenarios) == 1" not in source
+    assert "valuation.scenarios[0]" not in source
 
     assert '"Precio actual"' in source
     assert "snapshot.price" in source
@@ -663,7 +671,7 @@ def test_investment_result_exposes_interpretable_valuation():
     assert '"Margen sobre precio"' in source
     assert "scenario.price_margin" in source
 
-    assert "Exigencias del escenario" in source
+    assert 'st.markdown(f"##### {scenario.name}")' in source
     assert "scenario.eps_growth" in source
     assert "scenario.required_eps_growth" in source
     assert "scenario.terminal_pe" in source

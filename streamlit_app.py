@@ -353,8 +353,8 @@ def render_investment_result(result) -> None:
 
         st.markdown("#### Lectura de la valoraci\u00f3n")
 
-        if len(valuation.scenarios) == 1:
-            scenario = valuation.scenarios[0]
+        for scenario in valuation.scenarios:
+            st.markdown(f"##### {scenario.name}")
 
             value_col1, value_col2, value_col3, value_col4 = (
                 st.columns(4)
@@ -386,8 +386,6 @@ def render_investment_result(result) -> None:
                 ),
                 help=financial_help("price_margin"),
             )
-
-            st.markdown("##### Exigencias del escenario")
 
             requirement_col1, requirement_col2 = st.columns(2)
 
@@ -581,7 +579,7 @@ def render_investment_result(result) -> None:
 def run_selected_company(
     candidate: CompanyCandidate,
     fundamental_profile: str,
-    scenario: ValuationScenario,
+    scenarios: tuple[ValuationScenario, ...],
     target_return: float,
     years: int,
 ):
@@ -611,7 +609,7 @@ def run_selected_company(
             ),
             end_date=today,
             as_of_date=today,
-            scenarios=(scenario,),
+            scenarios=scenarios,
             estimate_date=today,
             target_return=float(target_return),
             years=int(years),
@@ -760,37 +758,77 @@ def render_company_search() -> None:
             "Se utilizan para calcular el escenario de valoraci\u00f3n."
         )
 
-        assumption_col1, assumption_col2 = st.columns(2)
+        st.markdown("#### Escenarios de valoraci\u00f3n")
 
-        with assumption_col1:
-            company_eps_growth_percent = st.number_input(
-                "Crecimiento anual del BPA (%)",
-                value=percentage_from_domain(0.05),
-                step=0.50,
-                format="%.2f",
-                key="company_eps_growth_percent",
-                help=financial_help("eps_growth"),
+        st.caption(
+            "Define hip\u00f3tesis independientes para los escenarios "
+            "Conservador, Base y Optimista. El motor no asigna "
+            "probabilidades ni promedia sus resultados."
+        )
+
+        scenario_inputs = (
+            ("Conservador", "conservative"),
+            ("Base", "base"),
+            ("Optimista", "optimistic"),
+        )
+
+        company_scenarios = []
+
+        for scenario_name, scenario_key in scenario_inputs:
+            st.markdown(f"##### {scenario_name}")
+
+            scenario_col1, scenario_col2, scenario_col3 = st.columns(3)
+
+            with scenario_col1:
+                eps_growth_percent = st.number_input(
+                    "Crecimiento anual del BPA (%)",
+                    value=percentage_from_domain(0.05),
+                    step=0.50,
+                    format="%.2f",
+                    key=f"company_{scenario_key}_eps_growth_percent",
+                    help=financial_help("eps_growth"),
+                )
+
+            with scenario_col2:
+                dividend_yield_percent = st.number_input(
+                    "Rentabilidad por dividendo (%)",
+                    value=percentage_from_domain(0.02),
+                    step=0.25,
+                    format="%.2f",
+                    key=f"company_{scenario_key}_dividend_yield_percent",
+                    help=financial_help("dividend_yield"),
+                )
+
+            with scenario_col3:
+                terminal_pe = st.number_input(
+                    "PER terminal",
+                    value=15.0,
+                    step=0.5,
+                    min_value=0.01,
+                    key=f"company_{scenario_key}_terminal_pe",
+                    help=financial_help("terminal_pe"),
+                )
+
+            company_scenarios.append(
+                ValuationScenario(
+                    name=scenario_name,
+                    eps_growth=percentage_to_domain(
+                        eps_growth_percent
+                    ),
+                    dividend_yield=percentage_to_domain(
+                        dividend_yield_percent
+                    ),
+                    terminal_pe=float(terminal_pe),
+                )
             )
 
-            company_dividend_yield_percent = st.number_input(
-                "Rentabilidad por dividendo (%)",
-                value=percentage_from_domain(0.02),
-                step=0.25,
-                format="%.2f",
-                key="company_dividend_yield_percent",
-                help=financial_help("dividend_yield"),
-            )
+        company_scenarios = tuple(company_scenarios)
 
-            company_terminal_pe = st.number_input(
-                "PER terminal",
-                value=15.0,
-                step=0.5,
-                min_value=0.01,
-                key="company_terminal_pe",
-                help=financial_help("terminal_pe"),
-            )
+        st.markdown("#### Objetivo com\u00fan")
 
-        with assumption_col2:
+        objective_col1, objective_col2 = st.columns(2)
+
+        with objective_col1:
             company_target_return_percent = st.number_input(
                 "Rentabilidad anual objetivo (%)",
                 value=percentage_from_domain(0.10),
@@ -800,6 +838,7 @@ def render_company_search() -> None:
                 help=financial_help("target_return"),
             )
 
+        with objective_col2:
             company_years = st.number_input(
                 "Horizonte en a\u00f1os",
                 value=5,
@@ -808,17 +847,6 @@ def render_company_search() -> None:
                 key="company_years",
                 help=financial_help("horizon"),
             )
-
-        company_scenario = ValuationScenario(
-            name="Base",
-            eps_growth=percentage_to_domain(
-                company_eps_growth_percent
-            ),
-            dividend_yield=percentage_to_domain(
-                company_dividend_yield_percent
-            ),
-            terminal_pe=float(company_terminal_pe),
-        )
 
         if st.button(
             "Incorporar y analizar",
@@ -832,7 +860,7 @@ def render_company_search() -> None:
                     flow_result = run_selected_company(
                         candidate=enriched,
                         fundamental_profile=profile,
-                        scenario=company_scenario,
+                        scenarios=company_scenarios,
                         target_return=percentage_to_domain(
                             company_target_return_percent
                         ),
