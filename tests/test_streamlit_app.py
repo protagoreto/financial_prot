@@ -620,6 +620,48 @@ def test_company_analysis_separates_data_assumptions_results():
         "render_investment_result("
     ) > results_position
 
+def test_price_history_uses_persisted_market_data():
+    from inspect import getsource
+
+    from streamlit_app import render_price_history
+
+    source = getsource(render_price_history)
+
+    assert "get_company_id_by_ticker_exchange(" in source
+    assert "get_price_history(" in source
+    assert "YahooPriceProvider" not in source
+    assert "date.today()" not in source
+    assert "latest_date = full_history[-1].price_date" in source
+    assert "record.adjusted_close" in source
+    assert "else record.close" in source
+    assert "st.line_chart(" in source
+    assert '"1 año"' in source
+    assert '"3 años"' in source
+    assert '"5 años"' in source
+    assert '"Máximo"' in source
+
+
+def test_company_analysis_renders_price_history_as_observed_data():
+    from inspect import getsource
+
+    from streamlit_app import render_company_search
+
+    source = getsource(render_company_search)
+
+    observed_position = source.index(
+        'st.header("Datos observados")'
+    )
+    history_position = source.index(
+        "render_price_history("
+    )
+    results_position = source.index(
+        'st.header("Resultados calculados")'
+    )
+
+    assert observed_position < history_position
+    assert history_position < results_position
+
+
 def test_investment_result_exposes_valuation_traceability():
     from inspect import getsource
 

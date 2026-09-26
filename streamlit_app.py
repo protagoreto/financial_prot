@@ -1,4 +1,5 @@
 ﻿from datetime import date
+from dateutil.relativedelta import relativedelta
 
 import streamlit as st
 
@@ -25,7 +26,11 @@ from src.providers.yahoo_fundamentals import (
 )
 from src.models import CompanyRecord
 from src.radar_presentation import RadarPresentation
-from src.repository import list_active_companies
+from src.repository import (
+    get_company_id_by_ticker_exchange,
+    get_price_history,
+    list_active_companies,
+)
 from src.scenarios import ValuationScenario
 from src.streamlit_view import (
     build_radar_table,
@@ -253,6 +258,98 @@ def render_coverage(coverage) -> None:
             "**M\u00e9tricas PIT faltantes:** "
             + ", ".join(missing)
         )
+
+
+def render_price_history(
+    ticker: str,
+    exchange: str,
+) -> None:
+    with managed_connection(settings.db_path) as connection:
+        company_id = get_company_id_by_ticker_exchange(
+            connection,
+            ticker,
+            exchange,
+        )
+
+        if company_id is None:
+            st.info(
+                "No hay histórico de cotización disponible "
+                "para esta empresa."
+            )
+            return
+
+        full_history = get_price_history(
+            connection,
+            company_id,
+        )
+
+    if not full_history:
+        st.info(
+            "No hay histórico de cotización disponible "
+            "para esta empresa."
+        )
+        return
+
+    latest_date = full_history[-1].price_date
+
+    period = st.radio(
+        "Periodo del gráfico",
+        options=(
+            "1 año",
+            "3 años",
+            "5 años",
+            "Máximo",
+        ),
+        index=2,
+        horizontal=True,
+        key=f"price_history_period_{company_id}",
+    )
+
+    years_by_period = {
+        "1 año": 1,
+        "3 años": 3,
+        "5 años": 5,
+    }
+
+    if period == "Máximo":
+        history = full_history
+    else:
+        start_date = latest_date - relativedelta(
+            years=years_by_period[period]
+        )
+
+        history = tuple(
+            record
+            for record in full_history
+            if record.price_date >= start_date
+        )
+
+    chart_data = {
+        record.price_date: (
+            record.adjusted_close
+            if record.adjusted_close is not None
+            else record.close
+        )
+        for record in history
+    }
+
+    st.markdown("#### Histórico de cotización")
+
+    st.caption(
+        "Precio de cierre ajustado cuando está disponible; "
+        "en caso contrario, precio de cierre. "
+        f"Última sesión almacenada: {latest_date.isoformat()}."
+    )
+
+    st.line_chart(
+        chart_data,
+        x_label="Fecha",
+        y_label=(
+            f"Precio ({history[-1].currency})"
+            if history[-1].currency
+            else "Precio"
+        ),
+    )
 
 
 def render_investment_result(result) -> None:
@@ -901,6 +998,11 @@ def render_company_search() -> None:
             )
             render_coverage(
                 flow_result.coverage
+            )
+
+            render_price_history(
+                ticker=flow_result.company.ticker,
+                exchange=flow_result.company.exchange,
             )
 
             st.header("Resultados calculados")

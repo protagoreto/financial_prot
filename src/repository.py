@@ -1,4 +1,4 @@
-import sqlite3
+﻿import sqlite3
 from datetime import date
 
 
@@ -208,7 +208,6 @@ def insert_price_record(
 
     return row["price_id"]
 
-from datetime import date
 
 
 def get_latest_price_date(
@@ -230,6 +229,62 @@ def get_latest_price_date(
     return date.fromisoformat(
         row["latest_price_date"]
     )
+
+def get_price_history(
+    connection: sqlite3.Connection,
+    company_id: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[PriceRecord, ...]:
+    conditions = ["company_id = ?"]
+    parameters: list[object] = [company_id]
+
+    if start_date is not None:
+        conditions.append("price_date >= ?")
+        parameters.append(start_date.isoformat())
+
+    if end_date is not None:
+        conditions.append("price_date <= ?")
+        parameters.append(end_date.isoformat())
+
+    where_clause = " AND ".join(conditions)
+
+    rows = connection.execute(
+        f"""
+        SELECT
+            company_id,
+            price_date,
+            open,
+            high,
+            low,
+            close,
+            adjusted_close,
+            volume,
+            currency,
+            source_id
+        FROM prices
+        WHERE {where_clause}
+        ORDER BY price_date ASC
+        """,
+        tuple(parameters),
+    ).fetchall()
+
+    return tuple(
+        PriceRecord(
+            company_id=row["company_id"],
+            price_date=row["price_date"],
+            open=row["open"],
+            high=row["high"],
+            low=row["low"],
+            close=row["close"],
+            adjusted_close=row["adjusted_close"],
+            volume=row["volume"],
+            currency=row["currency"],
+            source_id=row["source_id"],
+        )
+        for row in rows
+    )
+
 
 def get_price_on_or_before(
     connection: sqlite3.Connection,

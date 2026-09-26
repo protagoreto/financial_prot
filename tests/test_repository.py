@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 from pathlib import Path
 
 import pytest
@@ -263,6 +263,114 @@ def test_get_latest_price_date_returns_most_recent_date(
         )
 
     assert latest.isoformat() == "2026-09-18"
+
+def test_get_price_history_returns_chronological_records(
+    tmp_path: Path,
+):
+    from src.repository import get_price_history
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with managed_connection(db_path) as connection:
+        company_id = create_company(connection)
+
+        for price_date, close, adjusted_close in (
+            ("2026-09-18", 51.0, 50.5),
+            ("2026-09-16", 49.0, None),
+            ("2026-09-17", 50.0, 49.5),
+        ):
+            insert_price_record(
+                connection,
+                PriceRecord(
+                    company_id=company_id,
+                    price_date=price_date,
+                    close=close,
+                    adjusted_close=adjusted_close,
+                    currency="EUR",
+                ),
+            )
+
+        history = get_price_history(
+            connection,
+            company_id,
+        )
+
+    assert tuple(
+        record.price_date.isoformat()
+        for record in history
+    ) == (
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18",
+    )
+
+    assert tuple(
+        record.adjusted_close
+        for record in history
+    ) == (
+        None,
+        49.5,
+        50.5,
+    )
+
+
+def test_get_price_history_filters_date_range(
+    tmp_path: Path,
+):
+    from src.repository import get_price_history
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with managed_connection(db_path) as connection:
+        company_id = create_company(connection)
+
+        for price_date, close in (
+            ("2024-01-02", 40.0),
+            ("2025-01-02", 45.0),
+            ("2026-01-02", 50.0),
+        ):
+            insert_price_record(
+                connection,
+                PriceRecord(
+                    company_id=company_id,
+                    price_date=price_date,
+                    close=close,
+                    currency="EUR",
+                ),
+            )
+
+        history = get_price_history(
+            connection,
+            company_id,
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 12, 31),
+        )
+
+    assert len(history) == 1
+    assert history[0].price_date == date(2025, 1, 2)
+    assert history[0].close == 45.0
+
+
+def test_get_price_history_returns_empty_tuple_without_prices(
+    tmp_path: Path,
+):
+    from src.repository import get_price_history
+
+    db_path = tmp_path / "test.sqlite"
+    initialize_database(db_path)
+
+    with managed_connection(db_path) as connection:
+        company_id = create_company(connection)
+
+        history = get_price_history(
+            connection,
+            company_id,
+        )
+
+    assert history == ()
+
 
 def test_get_price_on_or_before_exact_date(
     tmp_path: Path,
